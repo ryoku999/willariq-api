@@ -1,0 +1,904 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ADMIN
+  SUPERVISOR
+  OPERATOR
+  CITIZEN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
+enum AreaMemberRole {
+  MANAGER
+  OPERATOR
+}
+
+enum MunicipalAreaStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum IncidentSource {
+  MOBILE_APP
+  WEB_APP
+  CHATBOT
+  PHONE
+  WHATSAPP
+  IN_PERSON
+  OTHER
+}
+
+enum IncidentType {
+  INFRASTRUCTURE
+  SECURITY
+  HEALTH
+  ENVIRONMENT
+  NOISE
+  TRAFFIC
+  PUBLIC_SERVICES
+  SOCIAL
+  EMERGENCY
+  OTHER
+}
+
+enum IncidentCategory {
+  FALLEN_UTILITY_POLE
+  WATER_OUTAGE
+  POWER_OUTAGE
+  STREET_FIGHT
+  THEFT
+  TRAFFIC_ACCIDENT
+  GARBAGE_ACCUMULATION
+  POTHOLE
+  FLOOD
+  FIRE
+  EXCESSIVE_NOISE
+  VANDALISM
+  LOOSE_ANIMALS
+  AMBULANCE_REQUIRED
+  POLICE_REQUIRED
+  OTHER
+}
+
+enum IncidentStatus {
+  RECEIVED
+  AI_ANALYSIS
+  IN_REVIEW
+  ACCEPTED
+  ASSIGNED
+  IN_PROGRESS
+  RESOLVED
+  REJECTED
+  CLOSED
+  CANCELLED
+}
+
+enum AssignmentStatus {
+  ASSIGNED
+  ACCEPTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  REASSIGNED
+}
+
+enum UrgencyLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum Sentiment {
+  NEUTRAL
+  WORRIED
+  PANIC
+  ANGRY
+  URGENT
+}
+
+enum EvidenceType {
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+  OTHER
+}
+
+enum EvidenceStatus {
+  QUARANTINED
+  AVAILABLE
+  REJECTED
+}
+
+enum EvidenceUploadStatus {
+  PENDING
+  VERIFYING
+  CONFIRMED
+  REJECTED
+  EXPIRED
+}
+
+enum HistoryActorType {
+  USER
+  AI
+  SYSTEM
+}
+
+enum EntityType {
+  PERSON
+  LOCATION
+  ORGANIZATION
+  LANDMARK
+  VEHICLE
+  ANIMAL
+  DANGEROUS_OBJECT
+  OBJECT
+  OTHER
+}
+
+enum IncidentClassificationSource {
+  AI
+  HUMAN
+  MANUAL_WITHOUT_AI
+}
+
+enum AiProvider {
+  CEREBRAS
+  GROQ
+  OPENROUTER
+}
+
+enum AiCapability {
+  INCIDENT_CLASSIFICATION
+  CHATBOT
+  EMBEDDING
+}
+
+enum AiJobType {
+  INCIDENT_ANALYSIS
+  CHAT_RESPONSE
+  EMBEDDING_DOCUMENT
+  EMBEDDING_QUERY
+}
+
+enum AiJobTrigger {
+  AUTOMATIC
+  MANUAL
+  RETRY
+}
+
+enum AiJobStatus {
+  PENDING
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum AiAttemptStatus {
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
+  TIMEOUT
+  RATE_LIMITED
+  INVALID_RESPONSE
+}
+
+enum QueueOutboxStatus {
+  PENDING
+  PROCESSING
+  PUBLISHED
+  DEAD
+}
+
+enum ChatStatus {
+  ACTIVE
+  CLOSED
+}
+
+enum ChatRole {
+  SYSTEM
+  USER
+  ASSISTANT
+}
+
+enum KnowledgeDocumentStatus {
+  DRAFT
+  PROCESSING
+  READY
+  ERROR
+  ARCHIVED
+}
+
+enum KnowledgeSourceType {
+  MANUAL
+  PDF
+  WEB
+  MUNICIPAL_REGULATION
+  FAQ
+  PROCEDURE
+  OTHER
+}
+
+enum NotificationType {
+  INCIDENT_CREATED
+  INCIDENT_STATUS_CHANGED
+  INCIDENT_ASSIGNED
+  INCIDENT_RESOLVED
+  INCIDENT_REJECTED
+  AI_REVIEW_REQUIRED
+  GENERAL
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  READ
+}
+
+enum DevicePlatform {
+  ANDROID
+  IOS
+  WEB
+}
+
+model User {
+  id              String     @id @default(uuid(7)) @db.Uuid
+  firstName       String     @db.VarChar(80)
+  lastName        String?    @db.VarChar(120)
+  dni             String     @unique @db.VarChar(8)
+  phone           String     @unique @db.VarChar(20)
+  email           String?    @unique @db.VarChar(160)
+  passwordHash    String     @db.VarChar(255)
+  emailVerifiedAt DateTime?
+  role            UserRole   @default(CITIZEN)
+  status          UserStatus @default(ACTIVE)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  refreshTokens               RefreshToken[]
+  passwordResetTokens         PasswordResetToken[]
+  emailVerificationTokens     EmailVerificationToken[]
+  incidents                   Incident[]               @relation("IncidentReporter")
+  incidentHistories           IncidentHistory[]
+  assignments                 IncidentAssignment[]     @relation("AssignmentOperator")
+  assignedIncidentAssignments IncidentAssignment[]     @relation("AssignmentCreator")
+  areaMemberships             MunicipalAreaMember[]
+  requestedAiJobs             AiJob[]                  @relation("AiJobRequester")
+  chatSessions                ChatSession[]
+  notifications               Notification[]
+  devices                     UserDevice[]
+  auditLogs                   AuditLog[]
+  uploadedEvidence            IncidentEvidence[]       @relation("EvidenceUploader")
+  evidenceUploadIntents       EvidenceUploadIntent[]   @relation("EvidenceUploadRequester")
+  reviewedIncidents           Incident[]               @relation("IncidentReviewer")
+  resolvedIncidents           Incident[]               @relation("IncidentResolver")
+  createdKnowledgeDocs        KnowledgeDocument[]      @relation("KnowledgeCreatedBy")
+  publishedKnowledgeDocs      KnowledgeDocument[]      @relation("KnowledgePublishedBy")
+  knowledgeUploadIntents      KnowledgeUploadIntent[]
+
+  @@index([role, status])
+  @@index([email, status])
+  @@index([createdAt])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique @db.VarChar(255)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique @db.VarChar(255)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, expiresAt])
+  @@map("password_reset_tokens")
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email     String    @db.VarChar(160)
+  tokenHash String    @unique @db.VarChar(64)
+  expiresAt DateTime
+  usedAt    DateTime?
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+  @@map("email_verification_tokens")
+}
+
+model UserDevice {
+  id         String         @id @default(uuid(7)) @db.Uuid
+  userId     String         @db.Uuid
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform   DevicePlatform
+  pushToken  String         @unique @db.Text
+  deviceId   String?        @db.VarChar(200)
+  active     Boolean        @default(true)
+  lastSeenAt DateTime       @default(now())
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  @@index([userId, active])
+  @@map("user_devices")
+}
+
+model MunicipalArea {
+  id             String              @id @default(uuid(7)) @db.Uuid
+  code           String              @unique @db.VarChar(30)
+  normalizedCode String              @unique @db.VarChar(30)
+  name           String              @unique @db.VarChar(120)
+  normalizedName String              @unique @db.VarChar(120)
+  description    String?             @db.Text
+  phone          String?             @db.VarChar(30)
+  email          String?             @db.VarChar(160)
+  status         MunicipalAreaStatus @default(ACTIVE)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  members     MunicipalAreaMember[]
+  assignments IncidentAssignment[]
+
+  @@index([status])
+  @@map("municipal_areas")
+}
+
+model MunicipalAreaMember {
+  id        String         @id @default(uuid(7)) @db.Uuid
+  areaId    String         @db.Uuid
+  area      MunicipalArea  @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  userId    String         @db.Uuid
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      AreaMemberRole @default(OPERATOR)
+  active    Boolean        @default(true)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@unique([areaId, userId])
+  @@index([userId, active])
+  @@index([areaId, active])
+  @@map("municipal_area_members")
+}
+
+model Incident {
+  id                   String                        @id @default(uuid(7)) @db.Uuid
+  trackingCode         String                        @unique @db.VarChar(30)
+  reporterId           String                        @db.Uuid
+  reporter             User                          @relation("IncidentReporter", fields: [reporterId], references: [id], onDelete: Restrict)
+  clientRequestId      String                        @db.VarChar(100)
+  requestFingerprint   String?                       @db.Char(64)
+  version              Int                           @default(1)
+  submittedAt          DateTime?
+  classificationSource IncidentClassificationSource?
+  source               IncidentSource                @default(MOBILE_APP)
+
+  originalMessage     String            @db.Text
+  improvedDescription String?           @db.Text
+  recommendedAction   String?           @db.Text
+  type                IncidentType?
+  category            IncidentCategory?
+  urgency             UrgencyLevel?
+  sentiment           Sentiment?
+  keywords            String[]          @default([])
+  aiConfidence        Decimal?          @db.Decimal(5, 4)
+  requiresSupervision Boolean           @default(false)
+
+  latitude         Decimal @db.Decimal(10, 7)
+  longitude        Decimal @db.Decimal(10, 7)
+  address          String? @db.VarChar(300)
+  addressReference String? @db.Text
+
+  status       IncidentStatus @default(RECEIVED)
+  reviewedById String?        @db.Uuid
+  reviewedBy   User?          @relation("IncidentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  reviewedAt        DateTime?
+  acceptedAt        DateTime?
+  assignedAt        DateTime?
+  startedAt         DateTime?
+  resolvedAt        DateTime?
+  resolvedById      String?   @db.Uuid
+  resolvedBy        User?     @relation("IncidentResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+  resolutionSummary String?   @db.Text
+  rejectedAt        DateTime?
+  rejectionReason   String?   @db.VarChar(80)
+  rejectionComment  String?   @db.Text
+  closedAt          DateTime?
+  cancelledAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  entities              IncidentEntity[]
+  evidence              IncidentEvidence[]
+  evidenceUploadIntents EvidenceUploadIntent[]
+  histories             IncidentHistory[]
+  assignments           IncidentAssignment[]
+  aiJobs                AiJob[]
+  chatSessions          ChatSession[]
+
+  @@unique([reporterId, clientRequestId])
+  @@index([reporterId, createdAt])
+  @@index([status, createdAt])
+  @@index([urgency, status])
+  @@index([category, status])
+  @@index([type, status])
+  @@index([requiresSupervision, status])
+  @@map("incidents")
+}
+
+model IncidentTrackingCounter {
+  prefix    String   @db.VarChar(10)
+  year      Int
+  lastValue Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@id([prefix, year])
+  @@map("incident_tracking_counters")
+}
+
+model IncidentEntity {
+  id              String     @id @default(uuid(7)) @db.Uuid
+  incidentId      String     @db.Uuid
+  incident        Incident   @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  type            EntityType
+  value           String     @db.VarChar(300)
+  normalizedValue String?    @db.VarChar(300)
+  confidence      Decimal?   @db.Decimal(5, 4)
+  createdAt       DateTime   @default(now())
+
+  @@index([incidentId, type])
+  @@map("incident_entities")
+}
+
+model IncidentEvidence {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  incidentId   String   @db.Uuid
+  incident     Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  uploadedById String?  @db.Uuid
+  uploadedBy   User?    @relation("EvidenceUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  status EvidenceStatus @default(AVAILABLE)
+
+  type              EvidenceType
+  bucket            String       @db.VarChar(100)
+  objectKey         String       @db.Text
+  mimeType          String       @db.VarChar(120)
+  fileName          String?      @db.VarChar(255)
+  sizeBytes         BigInt?
+  checksum          String?      @db.VarChar(128)
+  checksumAlgorithm String?      @db.VarChar(20)
+  width             Int?
+  height            Int?
+  durationMs        Int?
+  capturedAt        DateTime?
+  verifiedAt        DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  uploadIntent EvidenceUploadIntent?
+
+  @@unique([bucket, objectKey])
+  @@index([incidentId, createdAt])
+  @@index([status, createdAt])
+  @@map("incident_evidence")
+}
+
+model EvidenceUploadIntent {
+  id                String               @id @default(uuid(7)) @db.Uuid
+  incidentId        String               @db.Uuid
+  incident          Incident             @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  requestedById     String               @db.Uuid
+  requestedBy       User                 @relation("EvidenceUploadRequester", fields: [requestedById], references: [id], onDelete: Cascade)
+  evidenceId        String?              @unique @db.Uuid
+  evidence          IncidentEvidence?    @relation(fields: [evidenceId], references: [id], onDelete: SetNull)
+  bucket            String               @db.VarChar(100)
+  objectKey         String               @db.Text
+  fileName          String               @db.VarChar(255)
+  declaredMimeType  String               @db.VarChar(120)
+  declaredSizeBytes BigInt
+  capturedAt        DateTime?
+  status            EvidenceUploadStatus @default(PENDING)
+  expiresAt         DateTime
+  confirmedAt       DateTime?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@index([incidentId, status, createdAt])
+  @@index([requestedById, status, createdAt])
+  @@index([status, expiresAt])
+  @@map("evidence_upload_intents")
+}
+
+model IncidentHistory {
+  id             String           @id @default(uuid(7)) @db.Uuid
+  incidentId     String           @db.Uuid
+  incident       Incident         @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  userId         String?          @db.Uuid
+  user           User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  actorType      HistoryActorType @default(USER)
+  previousStatus IncidentStatus?
+  newStatus      IncidentStatus
+  comment        String?          @db.Text
+  metadata       Json?
+  createdAt      DateTime         @default(now())
+
+  @@index([incidentId, createdAt])
+  @@index([newStatus, createdAt])
+  @@map("incident_history")
+}
+
+model IncidentAssignment {
+  id             String              @id @default(uuid(7)) @db.Uuid
+  incidentId     String              @db.Uuid
+  incident       Incident            @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  areaId         String              @db.Uuid
+  area           MunicipalArea       @relation(fields: [areaId], references: [id], onDelete: Restrict)
+  operatorId     String?             @db.Uuid
+  operator       User?               @relation("AssignmentOperator", fields: [operatorId], references: [id], onDelete: SetNull)
+  assignedById   String?             @db.Uuid
+  assignedBy     User?               @relation("AssignmentCreator", fields: [assignedById], references: [id], onDelete: SetNull)
+  status         AssignmentStatus    @default(ASSIGNED)
+  version        Int                 @default(1)
+  note           String?             @db.Text
+  completionNote String?             @db.Text
+  reassignedAt   DateTime?
+  replacesId     String?             @unique @db.Uuid
+  replaces       IncidentAssignment? @relation("AssignmentReplacement", fields: [replacesId], references: [id], onDelete: SetNull)
+  replacedBy     IncidentAssignment? @relation("AssignmentReplacement")
+  assignedAt     DateTime            @default(now())
+  acceptedAt     DateTime?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  cancelledAt    DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([incidentId, assignedAt])
+  @@index([areaId, status])
+  @@index([operatorId, status])
+  @@index([assignedById, createdAt])
+  @@map("incident_assignments")
+}
+
+model ChatSession {
+  id         String     @id @default(uuid(7)) @db.Uuid
+  userId     String     @db.Uuid
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  incidentId String?    @db.Uuid
+  incident   Incident?  @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+  status     ChatStatus @default(ACTIVE)
+  title      String?    @db.VarChar(180)
+  context    Json?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  closedAt   DateTime?
+
+  messages ChatMessage[]
+
+  @@index([userId, createdAt])
+  @@index([incidentId])
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id              String      @id @default(uuid(7)) @db.Uuid
+  sessionId       String      @db.Uuid
+  session         ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role            ChatRole
+  content         String      @db.Text
+  clientRequestId String?     @db.Uuid
+  metadata        Json?
+  createdAt       DateTime    @default(now())
+
+  aiJobs AiJob[]
+
+  @@unique([sessionId, clientRequestId])
+  @@index([sessionId, createdAt])
+  @@map("chat_messages")
+}
+
+model PromptVersion {
+  id             String       @id @default(uuid(7)) @db.Uuid
+  name           String       @db.VarChar(120)
+  version        Int
+  capability     AiCapability
+  systemPrompt   String       @db.Text
+  responseSchema Json?
+  promptHash     String?      @db.Char(64)
+  schemaHash     String?      @db.Char(64)
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+
+  jobs AiJob[]
+
+  @@unique([name, version])
+  @@index([capability, active])
+  @@map("prompt_versions")
+}
+
+model AiRoute {
+  id         String       @id @default(uuid(7)) @db.Uuid
+  capability AiCapability
+  provider   AiProvider
+  model      String       @db.VarChar(180)
+  priority   Int
+  enabled    Boolean      @default(true)
+  timeoutMs  Int          @default(30000)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@unique([capability, priority])
+  @@index([capability, enabled, priority])
+  @@map("ai_routes")
+}
+
+model AiJob {
+  id      String       @id @default(uuid(7)) @db.Uuid
+  type    AiJobType
+  trigger AiJobTrigger @default(AUTOMATIC)
+  status  AiJobStatus  @default(PENDING)
+
+  incidentId    String?      @db.Uuid
+  incident      Incident?    @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  chatMessageId String?      @db.Uuid
+  chatMessage   ChatMessage? @relation(fields: [chatMessageId], references: [id], onDelete: Cascade)
+
+  promptVersionId String?        @db.Uuid
+  promptVersion   PromptVersion? @relation(fields: [promptVersionId], references: [id], onDelete: SetNull)
+
+  requestedById String? @db.Uuid
+  requestedBy   User?   @relation("AiJobRequester", fields: [requestedById], references: [id], onDelete: SetNull)
+
+  retryOfJobId String? @db.Uuid
+  retryOfJob   AiJob?  @relation("AiJobRetries", fields: [retryOfJobId], references: [id], onDelete: SetNull)
+  retries      AiJob[] @relation("AiJobRetries")
+
+  bullJobId            String?     @unique @db.VarChar(120)
+  maxRounds            Int         @default(2)
+  currentRound         Int         @default(0)
+  inputPayload         Json?
+  finalOutput          Json?
+  finalProvider        AiProvider?
+  finalModel           String?     @db.VarChar(180)
+  errorSummary         String?     @db.Text
+  routeSnapshot        Json?
+  promptHash           String?     @db.Char(64)
+  responseSchemaHash   String?     @db.Char(64)
+  inputFingerprint     String?     @db.Char(64)
+  resultApplied        Boolean?
+  processingToken      String?     @db.Uuid
+  processingLeaseUntil DateTime?
+  heartbeatAt          DateTime?
+  workerId             String?     @db.VarChar(120)
+  bullAttempts         Int         @default(0)
+  incidentVersion      Int?
+
+  queuedAt    DateTime?
+  startedAt   DateTime?
+  completedAt DateTime?
+  failedAt    DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  attempts        AiAttempt[]
+  retrievedChunks AiJobKnowledgeChunk[]
+
+  @@index([status, createdAt])
+  @@index([incidentId, createdAt])
+  @@index([retryOfJobId])
+  @@map("ai_jobs")
+}
+
+model QueueOutbox {
+  id            String            @id @default(uuid(7)) @db.Uuid
+  eventType     String            @db.VarChar(100)
+  aggregateType String            @db.VarChar(80)
+  aggregateId   String            @db.VarChar(120)
+  payload       Json
+  status        QueueOutboxStatus @default(PENDING)
+  attempts      Int               @default(0)
+  availableAt   DateTime          @default(now())
+  lockedAt      DateTime?
+  lockedBy      String?           @db.VarChar(120)
+  publishedAt   DateTime?
+  lastError     String?           @db.Text
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@unique([eventType, aggregateId])
+  @@index([status, availableAt, createdAt])
+  @@map("queue_outbox")
+}
+
+model AiAttempt {
+  id       String          @id @default(uuid(7)) @db.Uuid
+  jobId    String          @db.Uuid
+  job      AiJob           @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  round    Int
+  sequence Int
+  provider AiProvider
+  model    String          @db.VarChar(180)
+  status   AiAttemptStatus @default(PENDING)
+
+  requestPayload    Json?
+  rawResponse       Json?
+  parsedResponse    Json?
+  errorCode         String?   @db.VarChar(100)
+  errorMessage      String?   @db.Text
+  providerRequestId String?   @db.VarChar(200)
+  promptTokens      Int?
+  completionTokens  Int?
+  totalTokens       Int?
+  latencyMs         Int?
+  startedAt         DateTime?
+  completedAt       DateTime?
+  createdAt         DateTime  @default(now())
+
+  @@unique([jobId, round, sequence])
+  @@index([jobId, createdAt])
+  @@index([provider, status, createdAt])
+  @@map("ai_attempts")
+}
+
+model KnowledgeDocument {
+  id            String                  @id @default(uuid(7)) @db.Uuid
+  title         String                  @db.VarChar(250)
+  sourceType    KnowledgeSourceType
+  sourceUrl     String?                 @db.Text
+  storageBucket String?                 @db.VarChar(100)
+  storageKey    String?                 @db.Text
+  checksum      String?                 @db.VarChar(128)
+  version       Int                     @default(1)
+  status        KnowledgeDocumentStatus @default(DRAFT)
+  metadata      Json?
+
+  createdById   String? @db.Uuid
+  createdBy     User?   @relation("KnowledgeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  publishedById String? @db.Uuid
+  publishedBy   User?   @relation("KnowledgePublishedBy", fields: [publishedById], references: [id], onDelete: SetNull)
+
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  chunks       KnowledgeChunk[]
+  uploadIntent KnowledgeUploadIntent?
+
+  @@index([status, sourceType])
+  @@map("knowledge_documents")
+}
+
+model KnowledgeUploadIntent {
+  id           String             @id @default(uuid(7)) @db.Uuid
+  createdById  String             @db.Uuid
+  createdBy    User               @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  objectKey    String             @unique @db.Text
+  originalName String             @db.VarChar(255)
+  contentType  String             @db.VarChar(100)
+  expectedSize Int
+  expiresAt    DateTime
+  confirmedAt  DateTime?
+  documentId   String?            @unique @db.Uuid
+  document     KnowledgeDocument? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  createdAt    DateTime           @default(now())
+
+  @@index([createdById, createdAt])
+  @@index([expiresAt, confirmedAt])
+  @@map("knowledge_upload_intents")
+}
+
+model KnowledgeChunk {
+  id         String            @id @default(uuid(7)) @db.Uuid
+  documentId String            @db.Uuid
+  document   KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  chunkIndex Int
+  content    String            @db.Text
+  tokenCount Int?
+  metadata   Json?
+
+  embeddingProvider AiProvider             @default(OPENROUTER)
+  embeddingModel    String                 @db.VarChar(180)
+  embedding         Unsupported("vector")?
+
+  embeddedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  aiJobs AiJobKnowledgeChunk[]
+
+  @@unique([documentId, chunkIndex])
+  @@index([documentId])
+  @@index([embeddingModel])
+  @@map("knowledge_chunks")
+}
+
+model AiJobKnowledgeChunk {
+  jobId      String         @db.Uuid
+  job        AiJob          @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  chunkId    String         @db.Uuid
+  chunk      KnowledgeChunk @relation(fields: [chunkId], references: [id], onDelete: Cascade)
+  rank       Int
+  similarity Decimal?       @db.Decimal(7, 6)
+  createdAt  DateTime       @default(now())
+
+  @@id([jobId, chunkId])
+  @@index([jobId, rank])
+  @@map("ai_job_knowledge_chunks")
+}
+
+model Notification {
+  id        String             @id @default(uuid(7)) @db.Uuid
+  userId    String             @db.Uuid
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  status    NotificationStatus @default(PENDING)
+  title     String             @db.VarChar(180)
+  body      String             @db.Text
+  data      Json?
+  sentAt    DateTime?
+  readAt    DateTime?
+  error     String?            @db.Text
+  createdAt DateTime           @default(now())
+
+  @@index([userId, status, createdAt])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  userId     String?  @db.Uuid
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String   @db.VarChar(120)
+  entityType String   @db.VarChar(80)
+  entityId   String?  @db.VarChar(120)
+  oldValue   Json?
+  newValue   Json?
+  ipAddress  String?  @db.VarChar(64)
+  userAgent  String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId, createdAt])
+  @@index([userId, createdAt])
+  @@map("audit_logs")
+}
