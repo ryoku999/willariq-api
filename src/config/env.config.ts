@@ -12,7 +12,9 @@ export const envSchema = z.object({
   RATE_LIMIT_TTL: z.coerce.number().positive(),
   AUTH_ACCESS_COOKIE_NAME: z.string(),
   AUTH_REFRESH_COOKIE_NAME: z.string(),
-  AUTH_COOKIE_SECURE: z.coerce.boolean().default(false),
+  AUTH_COOKIE_SECURE: z
+    .enum(['true', 'false'])
+    .transform((value) => value === 'true'),
   AUTH_COOKIE_SAME_SITE: z.enum(['lax', 'strict', 'none']).default('lax'),
   JWT_EXPIRES_IN: z.string(),
   JWT_REFRESH_EXPIRES_IN: z.string(),

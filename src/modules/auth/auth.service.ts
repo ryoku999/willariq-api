@@ -159,4 +159,54 @@ export class AuthService {
       where: { tokenHash: hashRefreshToken(rawRefreshToken) },
     });
   }
+
+  async refresh(rawRefreshToken: string): Promise<AuthTokens> {
+    const storedToken = await this.db.refreshToken.findUnique({
+      where: { tokenHash: hashRefreshToken(rawRefreshToken) },
+      include: { user: true },
+    });
+
+    if (!storedToken) {
+      throw new UnauthorizedException('El refresh token no es valido');
+    }
+
+    if (storedToken.expiresAt <= new Date()) {
+      await this.db.refreshToken.deleteMany({
+        where: { id: storedToken.id },
+      });
+
+      throw new UnauthorizedException('El refresh token ha expirado');
+    }
+
+    if (storedToken.user.status !== UserStatus.ACTIVE) {
+      throw new UnauthorizedException('La cuenta no esta activa');
+    }
+
+    const nextRefreshToken = generateRefreshToken();
+    const refreshExpiresAt = new Date(Date.now() + this.refreshExpiresInMs);
+
+    await this.db.$transaction(async (transaction) => {
+      const deleted = await transaction.refreshToken.deleteMany({
+        where: { id: storedToken.id },
+      });
+
+      if (deleted.count !== 1) {
+        throw new UnauthorizedException('El refresh token no es valido');
+      }
+
+      await transaction.refreshToken.create({
+        data: {
+          userId: storedToken.userId,
+          tokenHash: hashRefreshToken(nextRefreshToken),
+          expiresAt: refreshExpiresAt,
+        },
+      });
+    });
+
+    return this.createTokensResponse(
+      storedToken.userId,
+      storedToken.user.role,
+      nextRefreshToken,
+    );
+  }
 }
