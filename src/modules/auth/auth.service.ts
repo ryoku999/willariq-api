@@ -150,4 +150,13 @@ export class AuthService {
       refreshToken,
     };
   }
+  async logout(rawRefreshToken: string | null): Promise<void> {
+    if (!rawRefreshToken) {
+      return;
+    }
+
+    await this.db.refreshToken.deleteMany({
+      where: { tokenHash: hashRefreshToken(rawRefreshToken) },
+    });
+  }
 }

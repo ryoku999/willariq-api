@@ -4,6 +4,7 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Req,
   Res,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
@@ -12,7 +13,7 @@ import { RegisterDto } from './dto/register.dto';
 import { RegisterResponse, WebLoginRes } from './interfaces/auth.interface';
 import { LoginDto } from './dto/login.dto';
 import { AuthCookieService } from './services/auth-cookie.service';
-import { type Response } from 'express';
+import { type Request, type Response } from 'express';
 
 @Controller('auth')
 export class AuthController {
@@ -37,5 +38,17 @@ export class AuthController {
     const result = await this.authService.login(body);
     this.authCookieService.setCookies(response, result.tokens);
     return result.user;
+  }
+
+  @Post('web/logout')
+  @HttpCode(HttpStatus.OK)
+  async webLogout(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const refreshToken = this.authCookieService.getRefreshToken(request);
+    await this.authService.logout(refreshToken);
+    this.authCookieService.clearCookies(response);
+    return { message: 'Sesion cerrada correctamente' };
   }
 }
