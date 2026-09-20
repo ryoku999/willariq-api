@@ -2,6 +2,7 @@ import { UnauthorizedException } from '@nestjs/common';
 
 export const AUTH_ERROR = {
   ACCESS_TOKEN_EXPIRED: 'ACCESS_TOKEN_EXPIRED',
+  ACCESS_TOKEN_MISSING: 'ACCESS_TOKEN_MISSING',
   ACCESS_TOKEN_INVALID: 'ACCESS_TOKEN_INVALID',
 } as const;
 

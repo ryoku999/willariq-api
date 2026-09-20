@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AUTH_ERROR, authUnauthorized } from '../errors/auth-errors';
 import { AuthenticatedUser } from '../interfaces/authenticated-user.interface';
@@ -26,7 +26,10 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     }
 
     if (info?.message === 'No auth token') {
-      throw new UnauthorizedException('Se requiere autenticacion');
+      throw authUnauthorized(
+        AUTH_ERROR.ACCESS_TOKEN_MISSING,
+        'No se encontró el token de acceso',
+      );
     }
 
     throw authUnauthorized(
