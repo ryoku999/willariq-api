@@ -9,6 +9,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { UsersModule } from './modules/users/users.module';
 import { AuditModule } from './modules/audit/audit.module';
+import { MunicipalAreasModule } from './modules/municipal-areas/municipal-areas.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { AuditModule } from './modules/audit/audit.module';
     AuthModule,
     UsersModule,
     AuditModule,
+    MunicipalAreasModule,
   ],
   controllers: [AppController],
   providers: [
