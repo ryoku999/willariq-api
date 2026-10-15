@@ -1,9 +1,15 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { envSchema } from './config/env.config';
 import { DatabaseModule } from './database/database.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
+import { UsersModule } from './modules/users/users.module';
+import { AuditModule } from './modules/audit/audit.module';
+import { MunicipalAreasModule } from './modules/municipal-areas/municipal-areas.module';
 
 @Module({
   imports: [
@@ -12,9 +18,28 @@ import { DatabaseModule } from './database/database.module';
       envFilePath: ['.env'],
       validationSchema: envSchema,
     }),
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => [
+        {
+          ttl: configService.getOrThrow<number>('RATE_LIMIT_TTL'),
+          limit: configService.getOrThrow<number>('RATE_LIMIT_LIMIT'),
+        },
+      ],
+    }),
     DatabaseModule,
+    AuthModule,
+    UsersModule,
+    AuditModule,
+    MunicipalAreasModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}
