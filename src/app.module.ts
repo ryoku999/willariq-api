@@ -10,6 +10,12 @@ import { APP_GUARD } from '@nestjs/core';
 import { UsersModule } from './modules/users/users.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { MunicipalAreasModule } from './modules/municipal-areas/municipal-areas.module';
+import { IncidentsModule } from './modules/incidents/incidents.module';
+import { EvidenceModule } from './modules/evidence/evidence.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { AiConfigModule } from './modules/ai-config/ai-config.module';
+import { IncidentAiModule } from './modules/incident-ai/incident-ai.module';
+import { QueueModule } from './infrastructure/queue/queue.module';
 
 @Module({
   imports: [
@@ -27,11 +33,17 @@ import { MunicipalAreasModule } from './modules/municipal-areas/municipal-areas.
         },
       ],
     }),
+    ScheduleModule.forRoot(),
     DatabaseModule,
     AuthModule,
     UsersModule,
     AuditModule,
     MunicipalAreasModule,
+    IncidentsModule,
+    EvidenceModule,
+    AiConfigModule,
+    QueueModule,
+    IncidentAiModule,
   ],
   controllers: [AppController],
   providers: [

@@ -6,3 +6,6 @@ allowBuilds:
   prisma: true
   unrs-resolver: true
   workerd: true
+permissions:
+  dotenv:
+    skills: true

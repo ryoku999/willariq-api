@@ -647,13 +647,14 @@ model PromptVersion {
   responseSchema Json?
   promptHash     String?      @db.Char(64)
   schemaHash     String?      @db.Char(64)
-  active         Boolean      @default(true)
+  active         Boolean      @default(false)
   createdAt      DateTime     @default(now())
 
   jobs AiJob[]
 
   @@unique([name, version])
   @@index([capability, active])
+  // Un solo activo por capacidad: indice parcial administrado en la migracion SQL.
   @@map("prompt_versions")
 }
 
