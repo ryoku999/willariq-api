@@ -1,3 +1,4 @@
+import { writeNotification } from '../notifications/write-notification';
 import { createHash } from 'node:crypto';
 import {
   BadRequestException,
@@ -309,14 +310,13 @@ export class IncidentsService {
           errorSummary: 'INCIDENT_CANCELLED',
         },
       });
-      await tx.notification.create({
-        data: {
-          userId: current.reporterId,
-          type: 'INCIDENT_STATUS_CHANGED',
-          title: 'Incidencia cancelada',
-          body: 'La incidencia fue cancelada.',
-          data: { incidentId: id },
-        },
+      await writeNotification(tx, {
+        eventKey: `incident:${id}:v${current.version + 1}`,
+        userId: current.reporterId,
+        type: 'INCIDENT_STATUS_CHANGED',
+        title: 'Incidencia cancelada',
+        body: 'La incidencia fue cancelada.',
+        data: { incidentId: id },
       });
       const reason = dto.reason.trim();
       await tx.incidentHistory.create({

@@ -874,6 +874,7 @@ model Notification {
   userId    String             @db.Uuid
   user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   type      NotificationType
+  eventKey  String?            @db.VarChar(180)
   status    NotificationStatus @default(PENDING)
   title     String             @db.VarChar(180)
   body      String             @db.Text
@@ -883,6 +884,7 @@ model Notification {
   error     String?            @db.Text
   createdAt DateTime           @default(now())
 
+  @@unique([userId, eventKey])
   @@index([userId, status, createdAt])
   @@map("notifications")
 }

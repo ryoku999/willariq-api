@@ -1,3 +1,4 @@
+import { writeNotification } from '../../notifications/write-notification';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
@@ -441,16 +442,15 @@ export class ClassificationProcessor implements OnModuleInit {
           },
           tx,
         );
-        await tx.notification.create({
-          data: {
-            userId: incident.reporterId,
-            type: output ? 'INCIDENT_STATUS_CHANGED' : 'AI_REVIEW_REQUIRED',
-            title: 'Incidencia en revision',
-            body: output
-              ? 'Tu incidencia fue analizada y esta pendiente de revision humana.'
-              : 'Tu incidencia fue recibida y sera revisada manualmente.',
-            data: { incidentId: id, jobId: job.id },
-          },
+        await writeNotification(tx, {
+          eventKey: `incident:${id}:v${incident.version + 1}`,
+          userId: incident.reporterId,
+          type: output ? 'INCIDENT_STATUS_CHANGED' : 'AI_REVIEW_REQUIRED',
+          title: 'Incidencia en revision',
+          body: output
+            ? 'Tu incidencia fue analizada y esta pendiente de revision humana.'
+            : 'Tu incidencia fue recibida y sera revisada manualmente.',
+          data: { incidentId: id, jobId: job.id },
         });
       },
       { timeout: 10000 },

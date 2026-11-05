@@ -134,6 +134,7 @@ test(
     for (const folder of [
       '20260916021124_init',
       '20261015180000_ai_prompt_activation',
+      '20261105040000_notification_event_key',
     ]) {
       const sql = await readFile(
         path.join(__dirname, '../prisma/migrations', folder, 'migration.sql'),

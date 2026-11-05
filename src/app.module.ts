@@ -1,3 +1,4 @@
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AssignmentsModule } from './modules/assignments/assignments.module';
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
@@ -39,6 +40,7 @@ import { QueueModule } from './infrastructure/queue/queue.module';
     AuthModule,
     UsersModule,
     AuditModule,
+    NotificationsModule,
     MunicipalAreasModule,
     IncidentsModule,
     AssignmentsModule,

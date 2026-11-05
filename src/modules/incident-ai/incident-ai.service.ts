@@ -1,3 +1,4 @@
+import { writeNotification } from '../notifications/write-notification';
 import {
   ConflictException,
   ForbiddenException,
@@ -244,14 +245,13 @@ export class IncidentAiService {
           tx,
         );
         if (!enabled)
-          await tx.notification.create({
-            data: {
-              userId: incident.reporterId,
-              type: 'INCIDENT_STATUS_CHANGED',
-              title: 'Incidencia en revision',
-              body: 'Tu incidencia fue enviada a revision manual.',
-              data: { incidentId: id, version: incident.version + 1 },
-            },
+          await writeNotification(tx, {
+            eventKey: `incident:${id}:v${incident.version + 1}`,
+            userId: incident.reporterId,
+            type: 'INCIDENT_STATUS_CHANGED',
+            title: 'Incidencia en revision',
+            body: 'Tu incidencia fue enviada a revision manual.',
+            data: { incidentId: id, version: incident.version + 1 },
           });
         return {
           incidentId: id,

@@ -1,3 +1,4 @@
+import { writeNotification } from '../notifications/write-notification';
 import {
   ConflictException,
   ForbiddenException,
@@ -197,21 +198,20 @@ export class IncidentWorkflowService {
       },
       tx,
     );
-    await tx.notification.create({
-      data: {
-        userId: incident.reporterId,
-        type:
-          status === 'RESOLVED'
-            ? 'INCIDENT_RESOLVED'
-            : status === 'REJECTED'
-              ? 'INCIDENT_REJECTED'
-              : status === 'ASSIGNED'
-                ? 'INCIDENT_ASSIGNED'
-                : 'INCIDENT_STATUS_CHANGED',
-        title: 'Actualizacion de incidencia',
-        body: `Tu incidencia se encuentra en ${status}.`,
-        data: { incidentId: incident.id, status },
-      },
+    await writeNotification(tx, {
+      eventKey: `incident:${incident.id}:v${incident.version + 1}`,
+      userId: incident.reporterId,
+      type:
+        status === 'RESOLVED'
+          ? 'INCIDENT_RESOLVED'
+          : status === 'REJECTED'
+            ? 'INCIDENT_REJECTED'
+            : status === 'ASSIGNED'
+              ? 'INCIDENT_ASSIGNED'
+              : 'INCIDENT_STATUS_CHANGED',
+      title: 'Actualizacion de incidencia',
+      body: `Tu incidencia se encuentra en ${status}.`,
+      data: { incidentId: incident.id, status },
     });
   }
 
@@ -446,14 +446,13 @@ export class IncidentWorkflowService {
         assignment.id,
       );
       if (dto.operatorId)
-        await tx.notification.create({
-          data: {
-            userId: dto.operatorId,
-            type: 'INCIDENT_ASSIGNED',
-            title: 'Nueva asignacion',
-            body: 'Tienes una incidencia asignada.',
-            data: { incidentId: id, assignmentId: assignment.id },
-          },
+        await writeNotification(tx, {
+          eventKey: `incident:${id}:v${incident.version + 1}`,
+          userId: dto.operatorId,
+          type: 'INCIDENT_ASSIGNED',
+          title: 'Nueva asignacion',
+          body: 'Tienes una incidencia asignada.',
+          data: { incidentId: id, assignmentId: assignment.id },
         });
       return this.result(tx, id, assignment.id);
     });
