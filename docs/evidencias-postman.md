@@ -1,5 +1,8 @@
 # Evidencias con Multer y MinIO — Postman
 
+> Actualización de etapa 6: revisión, asignaciones, cancelación administrativa ampliada y evidencias del responsable durante IN_PROGRESS están descritas en [revisión y asignaciones](revision-asignaciones-postman.md). Los límites de la entrega original indicados abajo se conservan como contexto histórico.
+
+
 Esta entrega usa `MulterModule.registerAsync`, `FileInterceptor('file')` y `memoryStorage()`: el archivo se recibe en RAM y se envía al bucket privado. No se crean archivos locales, carpetas temporales ni URLs de carga presignadas. La descarga también pasa por la API con autenticación.
 
 No necesitas paquetes ni migraciones adicionales: se reutilizan `minio`, `multer`, `@types/multer`, `IncidentEvidence` y `EvidenceUploadIntent` existentes. Los intents son registros internos de seguimiento/limpieza; el cliente no los crea ni confirma y no guardan el binario en PostgreSQL.

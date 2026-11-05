@@ -245,32 +245,36 @@ export class MunicipalAreasService {
     dto: UpdateMunicipalAreaStatusDto,
     context: AreaAuditContext,
   ) {
-    const area = await this.findById(id);
-    if (area.status === dto.status) {
-      return area;
-    }
-
-    if (dto.status === MunicipalAreaStatus.INACTIVE) {
-      const activeAssignments = await this.db.incidentAssignment.count({
-        where: {
-          areaId: id,
-          status: {
-            in: [
-              AssignmentStatus.ASSIGNED,
-              AssignmentStatus.ACCEPTED,
-              AssignmentStatus.IN_PROGRESS,
-            ],
-          },
-        },
-      });
-      if (activeAssignments > 0) {
-        throw new ConflictException(
-          'El area tiene asignaciones activas pendientes',
-        );
-      }
-    }
-
     return this.db.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT id FROM municipal_areas WHERE id = ${id}::uuid FOR UPDATE`;
+      const area = await transaction.municipalArea.findUnique({
+        where: { id },
+      });
+      if (!area) throw new NotFoundException('Area municipal no encontrada');
+      if (area.status === dto.status) {
+        return area;
+      }
+
+      if (dto.status === MunicipalAreaStatus.INACTIVE) {
+        const activeAssignments = await transaction.incidentAssignment.count({
+          where: {
+            areaId: id,
+            status: {
+              in: [
+                AssignmentStatus.ASSIGNED,
+                AssignmentStatus.ACCEPTED,
+                AssignmentStatus.IN_PROGRESS,
+              ],
+            },
+          },
+        });
+        if (activeAssignments > 0) {
+          throw new ConflictException(
+            'El area tiene asignaciones activas pendientes',
+          );
+        }
+      }
+
       const updated = await transaction.municipalArea.update({
         where: { id },
         data: { status: dto.status },

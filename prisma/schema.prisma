@@ -594,6 +594,7 @@ model IncidentAssignment {
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 
+  // Una asignacion activa por incidencia: indice parcial SQL en 20261105030000_active_incident_assignment.
   @@index([incidentId, assignedAt])
   @@index([areaId, status])
   @@index([operatorId, status])

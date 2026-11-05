@@ -61,6 +61,7 @@ export class MunicipalAreaMembersService {
   ) {
     try {
       return await this.db.$transaction(async (transaction) => {
+        await transaction.$queryRaw`SELECT id FROM municipal_areas WHERE id = ${areaId}::uuid FOR UPDATE`;
         const area = await transaction.municipalArea.findUnique({
           where: { id: areaId },
           select: { status: true },
@@ -252,6 +253,7 @@ export class MunicipalAreaMembersService {
     context: MemberAuditContext,
   ) {
     return this.db.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT id FROM municipal_areas WHERE id = ${areaId}::uuid FOR UPDATE`;
       const area = await transaction.municipalArea.findUnique({
         where: { id: areaId },
         select: { status: true },

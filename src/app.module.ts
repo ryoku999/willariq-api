@@ -1,3 +1,4 @@
+import { AssignmentsModule } from './modules/assignments/assignments.module';
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -40,6 +41,7 @@ import { QueueModule } from './infrastructure/queue/queue.module';
     AuditModule,
     MunicipalAreasModule,
     IncidentsModule,
+    AssignmentsModule,
     EvidenceModule,
     AiConfigModule,
     QueueModule,

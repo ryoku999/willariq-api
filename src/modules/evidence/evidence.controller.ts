@@ -30,7 +30,12 @@ export class EvidenceController {
 
   @Post()
   @UseGuards(EvidenceUploadGuard)
-  @Auth(UserRole.CITIZEN)
+  @Auth(
+    UserRole.CITIZEN,
+    UserRole.OPERATOR,
+    UserRole.SUPERVISOR,
+    UserRole.ADMIN,
+  )
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @UseInterceptors(UploadCapacityInterceptor, FileInterceptor('file'))
   upload(

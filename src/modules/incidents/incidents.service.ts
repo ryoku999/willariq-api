@@ -258,22 +258,32 @@ export class IncidentsService {
       );
     }
     return this.db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM incidents WHERE id = ${id}::uuid FOR UPDATE`;
       const current = await this.access.assertReadable(tx, actor, id);
       if (current.version !== dto.expectedVersion) {
         throw new ConflictException(
           'La incidencia cambio; recarga su version actual',
         );
       }
-      if (current.status !== IncidentStatus.RECEIVED) {
+      const allowed: IncidentStatus[] =
+        actor.role === UserRole.CITIZEN
+          ? [IncidentStatus.RECEIVED]
+          : [
+              IncidentStatus.RECEIVED,
+              IncidentStatus.AI_ANALYSIS,
+              IncidentStatus.IN_REVIEW,
+              IncidentStatus.ACCEPTED,
+            ];
+      if (!allowed.includes(current.status)) {
         throw new ConflictException(
-          'Solo se pueden cancelar incidencias en RECEIVED en esta fase',
+          'No se puede cancelar desde el estado actual; cancela primero la asignacion activa',
         );
       }
       const changed = await tx.incident.updateMany({
         where: {
           id,
           version: dto.expectedVersion,
-          status: IncidentStatus.RECEIVED,
+          status: current.status,
         },
         data: {
           status: IncidentStatus.CANCELLED,
@@ -286,6 +296,28 @@ export class IncidentsService {
           'La incidencia cambio; recarga su version actual',
         );
       }
+      await tx.aiJob.updateMany({
+        where: {
+          incidentId: id,
+          status: { in: ['PENDING', 'QUEUED', 'PROCESSING'] },
+        },
+        data: {
+          status: 'CANCELLED',
+          processingToken: null,
+          processingLeaseUntil: null,
+          resultApplied: false,
+          errorSummary: 'INCIDENT_CANCELLED',
+        },
+      });
+      await tx.notification.create({
+        data: {
+          userId: current.reporterId,
+          type: 'INCIDENT_STATUS_CHANGED',
+          title: 'Incidencia cancelada',
+          body: 'La incidencia fue cancelada.',
+          data: { incidentId: id },
+        },
+      });
       const reason = dto.reason.trim();
       await tx.incidentHistory.create({
         data: {

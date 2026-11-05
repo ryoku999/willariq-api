@@ -684,10 +684,14 @@ El script actual `pnpm run lint` de API usa `--fix`; para una revisión sin camb
 | Etapa 2: incidencias | Implementada en API y validada manualmente por el usuario. Bandeja/detalle web pendientes. |
 | Etapa 3: evidencias | Implementada y validada manualmente por el usuario: RAM → MinIO, listado, descarga, retirada y limpieza. |
 | Etapa 4: configuración IA | API implementada; primer prompt preparado; migración y pruebas manuales del usuario pendientes. Panel web pendiente. |
-| Etapas 5–12 | Planificadas, todavía pendientes. |
+| Etapa 5: Redis, BullMQ y clasificación | API implementada y flujo IA validado manualmente por el usuario. |
+| Etapa 6: revisión humana y asignaciones | API implementada; pruebas automáticas en esquema temporal correctas. Migración a base de negocio, pruebas manuales y panel pendientes. |
+| Etapas 7–12 | Planificadas, todavía pendientes. |
 | React Native | En espera de que incorpores su carpeta. |
 
-Incidencias y evidencias están implementadas y aceptadas por el usuario. Configuración IA está implementada en API; ver [pruebas de prompts/rutas en Postman](docs/ia-config-postman.md) y aplicar la migración revisada antes de su aceptación. La siguiente fase de backend es BullMQ/Redis y clasificación real con proveedores. Las pantallas de incidencias, galería y configuración IA siguen pendientes de una entrega web.
+Incidencias, evidencias y clasificación IA fueron probadas por el usuario. La etapa 6 está implementada en API: revisión/aceptación/rechazo, asignación/reasignación, aceptación del responsable, inicio, evidencias de atención, resolución y cierre. Ver [guía Postman de revisión y asignaciones](docs/revision-asignaciones-postman.md) para aplicar la migración del índice único y probar el recorrido completo. No se aplicó esa migración a las tablas de negocio ni se inició el servidor por el asistente. No hay paquetes ni variables nuevos. Las pantallas siguen pendientes de su entrega web.
+
+Verificación de etapa 6: compilación TypeScript aislada, ESLint y Prisma validate correctos; pruebas de DTO, metadatos de guardas, composición de módulos y transacciones PostgreSQL en esquema temporal. Incluye versiones, permisos, índice único, competencia entre asignaciones/baja de miembro, rollback de auditoría, supervisión y cancelación con invalidación IA. JWT/HTTP reales y archivos contra RustFS se prueban manualmente según la guía.
 
 Verificación histórica de incidencias y evidencias: build/lint y pruebas de integración correctos en sus entregas; el usuario confirmó ambos módulos en Postman. En configuración IA se verificaron build, ESLint sin advertencias, validación del esquema Prisma y 17 escenarios HTTP/PostgreSQL en `test/ai-config.integration.test.cjs` (18 resultados contando la prueba contenedora). Incluyen índice y migración, permisos de los trece endpoints, hashes, schemas y muestras, activaciones/prioridades concurrentes, referencias de jobs y rollback por auditoría. Se regeneró Prisma Client. Los esquemas de prueba se eliminaron al terminar; la migración de configuración IA no se aplicó a las tablas de negocio. Falta aplicar esa migración y tu aceptación manual de esta fase.
 

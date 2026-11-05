@@ -1,5 +1,8 @@
 # Incidencias — pruebas de la primera fase
 
+> Actualización de etapa 6: revisión, asignaciones, cancelación administrativa ampliada y evidencias del responsable durante IN_PROGRESS están descritas en [revisión y asignaciones](revision-asignaciones-postman.md). Los límites de la entrega original indicados abajo se conservan como contexto histórico.
+
+
 Implementado: creación, listado, detalle, historial y cancelación inicial. Se utilizan las tablas existentes; no necesitas paquetes nuevos ni ejecutar migraciones para esta entrega. Coordenadas normales, sin PostGIS. MinIO, upload, envío a IA, revisión y asignaciones se incorporarán en fases posteriores.
 
 ## 1. Preparación

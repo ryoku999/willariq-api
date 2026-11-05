@@ -65,15 +65,30 @@ export class EvidenceService {
     id: string,
     client: Prisma.TransactionClient = this.db,
   ) {
-    if (actor.role !== UserRole.CITIZEN)
-      throw new ForbiddenException(
-        'Solo el ciudadano propietario puede modificar evidencias',
-      );
     const incident = await this.access.assertReadable(client, actor, id);
-    if (incident.status !== IncidentStatus.RECEIVED)
-      throw new ConflictException(
-        'Solo puedes modificar evidencias en RECEIVED',
-      );
+    if (actor.role === UserRole.CITIZEN) {
+      if (incident.status !== IncidentStatus.RECEIVED)
+        throw new ConflictException(
+          'Solo puedes modificar evidencias en RECEIVED',
+        );
+    } else {
+      const assignment = await client.incidentAssignment.findFirst({
+        where: {
+          incidentId: id,
+          operatorId: actor.id,
+          status: 'IN_PROGRESS',
+          replacedBy: { is: null },
+          area: {
+            status: 'ACTIVE',
+            members: { some: { userId: actor.id, active: true } },
+          },
+        },
+      });
+      if (incident.status !== IncidentStatus.IN_PROGRESS || !assignment)
+        throw new ForbiddenException(
+          'Solo el responsable activo puede adjuntar evidencias durante la atencion',
+        );
+    }
     if (!this.storage.enabled || !this.storage.evidenceBucket)
       throw new ServiceUnavailableException(
         'El almacenamiento de evidencias esta deshabilitado',
@@ -328,6 +343,8 @@ export class EvidenceService {
     evidenceId: string,
     context: IncidentAuditContext,
   ) {
+    if (actor.role !== UserRole.CITIZEN)
+      throw new ForbiddenException('El personal no puede eliminar evidencias');
     const result = await this.db.$transaction(async (tx) => {
       await this.lockIncident(tx, id);
       const incident = await this.assertCanUpload(actor, id, tx);
@@ -401,13 +418,17 @@ export class EvidenceService {
     after: number,
     context: IncidentAuditContext,
   ) {
+    const current = await tx.incident.findUniqueOrThrow({
+      where: { id },
+      select: { status: true },
+    });
     await tx.incidentHistory.create({
       data: {
         incidentId: id,
         userId: actor.id,
         actorType: HistoryActorType.USER,
-        previousStatus: IncidentStatus.RECEIVED,
-        newStatus: IncidentStatus.RECEIVED,
+        previousStatus: current.status,
+        newStatus: current.status,
         comment:
           action === 'INCIDENT_EVIDENCE_ADDED'
             ? 'Evidencia adjuntada'
