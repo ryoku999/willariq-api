@@ -1,3 +1,4 @@
+import { lockAccount } from './utils/account-lock';
 import { DatabaseService } from '@/database/database.service';
 import {
   ConflictException,
@@ -106,43 +107,51 @@ export class AuthService {
       throw new UnauthorizedException('La cuenta no esta activa');
     }
 
-    const tokens = await this.createTokensResponse(
-      userFound.id,
-      userFound.role,
-    );
-
-    const refreshExpiresAt = new Date(Date.now() + this.refreshExpiresInMs);
-
-    await this.db.refreshToken.create({
-      data: {
-        userId: userFound.id,
-        tokenHash: hashRefreshToken(tokens.refreshToken),
-        expiresAt: refreshExpiresAt,
-      },
+    return this.db.$transaction(async (tx) => {
+      const user = await lockAccount(tx, userFound.id);
+      if (
+        !user ||
+        user.status !== UserStatus.ACTIVE ||
+        user.passwordHash !== userFound.passwordHash
+      ) {
+        throw new UnauthorizedException('Credenciales incorrectas');
+      }
+      const tokens = await this.createTokensResponse(
+        user.id,
+        user.role,
+        user.sessionVersion,
+      );
+      await tx.refreshToken.create({
+        data: {
+          userId: user.id,
+          tokenHash: hashRefreshToken(tokens.refreshToken),
+          expiresAt: new Date(Date.now() + this.refreshExpiresInMs),
+        },
+      });
+      return {
+        tokens,
+        user: {
+          dni: user.dni,
+          email: user.email,
+          emailVerifiedAt: user.emailVerifiedAt,
+          firstName: user.firstName,
+          id: user.id,
+          lastName: user.lastName,
+          phone: user.phone,
+          role: user.role,
+          status: user.status,
+        },
+      };
     });
-
-    return {
-      tokens,
-      user: {
-        dni: userFound.dni,
-        email: userFound.email,
-        emailVerifiedAt: userFound.emailVerifiedAt,
-        firstName: userFound.firstName,
-        id: userFound.id,
-        lastName: userFound.lastName,
-        phone: userFound.phone,
-        role: userFound.role,
-        status: userFound.status,
-      },
-    };
   }
 
   private async createTokensResponse(
     userId: string,
     role: UserRole,
+    sessionVersion: number,
     refreshToken = generateRefreshToken(),
   ): Promise<AuthTokens> {
-    const payload: JwtPayload = { sub: userId, role };
+    const payload: JwtPayload = { sub: userId, role, sessionVersion };
     const accessToken = await this.jwtService.signAsync(payload);
 
     return {
@@ -163,50 +172,37 @@ export class AuthService {
   async refresh(rawRefreshToken: string): Promise<AuthTokens> {
     const storedToken = await this.db.refreshToken.findUnique({
       where: { tokenHash: hashRefreshToken(rawRefreshToken) },
-      include: { user: true },
+      select: { id: true, userId: true },
     });
-
-    if (!storedToken) {
+    if (!storedToken)
       throw new UnauthorizedException('El refresh token no es valido');
-    }
 
-    if (storedToken.expiresAt <= new Date()) {
-      await this.db.refreshToken.deleteMany({
-        where: { id: storedToken.id },
-      });
-
-      throw new UnauthorizedException('El refresh token ha expirado');
-    }
-
-    if (storedToken.user.status !== UserStatus.ACTIVE) {
-      throw new UnauthorizedException('La cuenta no esta activa');
-    }
-
-    const nextRefreshToken = generateRefreshToken();
-    const refreshExpiresAt = new Date(Date.now() + this.refreshExpiresInMs);
-
-    await this.db.$transaction(async (transaction) => {
-      const deleted = await transaction.refreshToken.deleteMany({
-        where: { id: storedToken.id },
-      });
-
-      if (deleted.count !== 1) {
-        throw new UnauthorizedException('El refresh token no es valido');
+    return this.db.$transaction(async (tx) => {
+      const user = await lockAccount(tx, storedToken.userId);
+      if (!user || user.status !== UserStatus.ACTIVE) {
+        throw new UnauthorizedException('La cuenta no esta activa');
       }
+      const deleted = await tx.refreshToken.deleteMany({
+        where: { id: storedToken.id, expiresAt: { gt: new Date() } },
+      });
+      if (deleted.count !== 1)
+        throw new UnauthorizedException(
+          'El refresh token no es valido o ha expirado',
+        );
 
-      await transaction.refreshToken.create({
+      const tokens = await this.createTokensResponse(
+        user.id,
+        user.role,
+        user.sessionVersion,
+      );
+      await tx.refreshToken.create({
         data: {
-          userId: storedToken.userId,
-          tokenHash: hashRefreshToken(nextRefreshToken),
-          expiresAt: refreshExpiresAt,
+          userId: user.id,
+          tokenHash: hashRefreshToken(tokens.refreshToken),
+          expiresAt: new Date(Date.now() + this.refreshExpiresInMs),
         },
       });
+      return tokens;
     });
-
-    return this.createTokensResponse(
-      storedToken.userId,
-      storedToken.user.role,
-      nextRefreshToken,
-    );
   }
 }

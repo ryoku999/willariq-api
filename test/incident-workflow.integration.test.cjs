@@ -149,6 +149,7 @@ test(
         '20261015180000_ai_prompt_activation',
         '20261105030000_active_incident_assignment',
         '20261105040000_notification_event_key',
+        '20261105050000_account_session_version',
       ]) {
         const sql = await readFile(
           path.join(__dirname, '../prisma/migrations', name, 'migration.sql'),

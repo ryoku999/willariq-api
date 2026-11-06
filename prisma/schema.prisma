@@ -273,6 +273,7 @@ model User {
   email           String?    @unique @db.VarChar(160)
   passwordHash    String     @db.VarChar(255)
   emailVerifiedAt DateTime?
+  sessionVersion  Int        @default(0)
   role            UserRole   @default(CITIZEN)
   status          UserStatus @default(ACTIVE)
   createdAt       DateTime   @default(now())

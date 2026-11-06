@@ -42,14 +42,19 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   async validate(payload: JwtPayload): Promise<AuthenticatedUser> {
     const user = await this.db.user.findUnique({
       where: { id: payload.sub },
-      select: { id: true, role: true, status: true },
+      select: { id: true, role: true, status: true, sessionVersion: true },
     });
 
     if (!user || user.status !== UserStatus.ACTIVE) {
       throw new UnauthorizedException('La cuenta no esta activa');
     }
 
+    if ((payload.sessionVersion ?? 0) !== user.sessionVersion) {
+      throw new UnauthorizedException('La sesion fue revocada');
+    }
+
     return {
+      sessionVersion: user.sessionVersion,
       id: user.id,
       role: user.role,
     };

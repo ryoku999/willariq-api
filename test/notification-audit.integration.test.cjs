@@ -67,6 +67,9 @@ test(
         options: `-c search_path=${schema},public`,
       });
       await pool.query(await migration('20260916021124_init'));
+      await pool.query(
+        await migration('20261105050000_account_session_version'),
+      );
       db = new PrismaClient({ adapter: new PrismaPg(pool, { schema }) });
 
       const addUser = (digit) =>

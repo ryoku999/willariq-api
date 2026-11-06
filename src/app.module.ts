@@ -1,3 +1,4 @@
+import { AccountModule } from './modules/account/account.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AssignmentsModule } from './modules/assignments/assignments.module';
 import { Module } from '@nestjs/common';
@@ -38,6 +39,7 @@ import { QueueModule } from './infrastructure/queue/queue.module';
     ScheduleModule.forRoot(),
     DatabaseModule,
     AuthModule,
+    AccountModule,
     UsersModule,
     AuditModule,
     NotificationsModule,

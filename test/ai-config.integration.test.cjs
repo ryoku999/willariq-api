@@ -109,6 +109,15 @@ test(
       options: `-c search_path=${schema},public`,
     });
     await testPool.query(initial);
+    await testPool.query(
+      await readFile(
+        path.join(
+          __dirname,
+          '../prisma/migrations/20261105050000_account_session_version/migration.sql',
+        ),
+        'utf8',
+      ),
+    );
     prisma = new PrismaClient({ adapter: new PrismaPg(testPool, { schema }) });
     await t.test(
       'migration refuses duplicate active prompts without changing historical data',

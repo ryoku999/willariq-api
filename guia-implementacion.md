@@ -500,15 +500,30 @@ Definir semántica de `PENDING/SENT/READ`: para bandeja interna puede registrars
 
 ## 13. Etapa 8 — Correo y ciclo de cuenta
 
-**Paquete propuesto en API:** `pnpm add resend` al elegir y configurar ese proveedor. No es necesario para incidencias iniciales.
+**Paquete en API.** Instalar Nodemailer 10 con `pnpm add nodemailer@10`. Requiere Node.js 20 o superior e incluye tipos TypeScript.
 
-**Variables propuestas:** `RESEND_API_KEY`, `RESEND_FROM`, `EMAIL_VERIFICATION_URL`, `PASSWORD_RESET_URL`, `EMAIL_TOKEN_TTL_MINUTES=60`, `PASSWORD_RESET_TOKEN_TTL_MINUTES=30`.
+**Correo de prueba.** Usar Gmail por SMTP con TLS en el puerto 465. Desde [Contraseñas de aplicación de Google](https://myaccount.google.com/apppasswords), generar una contraseña para Willariq con la verificación en dos pasos activa. Copiar los 16 caracteres sin espacios en el entorno privado del backend. El remitente de la prueba usa la misma dirección que autentica en Gmail. La máquina que ejecuta la API necesita salida TCP hacia `smtp.gmail.com:465`.
 
-Crear MailModule; verificación/cambio de correo; recuperación y cambio de contraseña; logout global. Usar tablas `EmailVerificationToken` y `PasswordResetToken`; tokens aleatorios, hash, expiración, uso único y revocación. No invalidar una contraseña hasta que se confirme el restablecimiento. Respuestas de recuperación que no revelen existencia de cuenta; rate limit y enlaces de origen fijo.
+```dotenv
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=tu-cuenta@gmail.com
+SMTP_PASS=
+MAIL_FROM="Willariq <tu-cuenta@gmail.com>"
+EMAIL_VERIFICATION_URL=http://localhost:5173/verificar-correo
+PASSWORD_RESET_URL=http://localhost:5173/restablecer-contrasena
+EMAIL_TOKEN_TTL_MINUTES=60
+PASSWORD_RESET_TOKEN_TTL_MINUTES=30
+```
 
-Rutas propuestas: `PUT /users/me/email`, `POST /users/me/email/verification-requests`, `POST /users/email-verifications/confirm`, `POST /auth/password/forgot`, `POST /auth/password/reset`, `POST /auth/logout-all` y `PATCH /users/me/password`.
+`SMTP_PASS` se configura con la contraseña de aplicación. Las URLs son destinos del frontend y deben ajustarse a sus rutas reales. En una prueba con Postman, se puede extraer el token del enlace recibido y enviarlo a la ruta de confirmación correspondiente.
 
-**Tus tareas:** dominio/remitente verificado y URLs reales. **Panel:** formularios de perfil, verificación, olvido y cambio de contraseña. **Pruebas:** expiración, reutilización, token alterado, correo duplicado y revocación de sesiones. **Cierre:** recuperación funciona sin SQL ni intervención manual.
+La API usa `MailModule` y `MailService` desde el módulo de ciclo de cuenta para enviar verificación y recuperación mediante Nodemailer. La migración agrega `users.sessionVersion` para revocar también los JWT emitidos. Los pasos de preparación y pruebas están en la [guía Postman](docs/correo-ciclo-cuenta-postman.md). Usar tablas `EmailVerificationToken` y `PasswordResetToken`; tokens aleatorios, hash, expiración, uso único y revocación. No invalidar una contraseña hasta que se confirme el restablecimiento. Respuestas de recuperación que no revelen existencia de cuenta; rate limit y enlaces de origen fijo.
+
+Rutas implementadas: `PUT /users/me/email`, `POST /users/me/email/verification-requests`, `POST /users/email-verifications/confirm`, `POST /auth/password/forgot`, `POST /auth/password/reset`, `POST /auth/logout-all` y `PATCH /users/me/password`.
+
+**Tus tareas:** cuenta Gmail con contraseña de aplicación, buzón de prueba y URLs del frontend. **Panel:** formularios de perfil, verificación, olvido y cambio de contraseña. **Pruebas:** expiración, reutilización, token alterado, correo duplicado y revocación de sesiones. **Cierre:** recuperación funciona sin SQL ni intervención manual.
 
 ## 14. Etapa 9 — Conocimiento y embeddings
 
@@ -686,11 +701,12 @@ El script actual `pnpm run lint` de API usa `--fix`; para una revisión sin camb
 | Etapa 4: configuración IA | API implementada; primer prompt preparado; migración y pruebas manuales del usuario pendientes. Panel web pendiente. |
 | Etapa 5: Redis, BullMQ y clasificación | API implementada y flujo IA validado manualmente por el usuario. |
 | Etapa 6: revisión humana y asignaciones | API implementada y validada por el usuario en Postman, incluidas cancelación y reasignación. Panel pendiente. |
-| Etapa 7: notificaciones y auditoría | API implementada. Migración en base de negocio y pruebas HTTP en Postman pendientes. [Guía de pruebas](docs/notificaciones-auditoria-postman.md). |
-| Etapas 8–12 | Planificadas, todavía pendientes. |
+| Etapa 7: notificaciones y auditoría | API implementada y validada por el usuario en Postman. Panel pendiente. [Guía de pruebas](docs/notificaciones-auditoria-postman.md). |
+| Etapa 8: correo y ciclo de cuenta | API implementada. Migración en base de negocio y validación de envío Gmail en Postman pendientes. [Guía de pruebas](docs/correo-ciclo-cuenta-postman.md). |
+| Etapas 9–12 | Planificadas, todavía pendientes. |
 | React Native | En espera de que incorpores su carpeta. |
 
-El usuario validó la etapa 6 de la API en Postman, incluido el recorrido de revisión y atención, cancelación y reasignación. La [guía Postman de revisión y asignaciones](docs/revision-asignaciones-postman.md) documenta cómo reproducir esas pruebas. El siguiente alcance de backend es la etapa 7, notificaciones internas y consulta de auditoría. Las pantallas siguen pendientes de su entrega web.
+El usuario validó la etapa 6 de la API en Postman, incluido el recorrido de revisión y atención, cancelación y reasignación. La [guía Postman de revisión y asignaciones](docs/revision-asignaciones-postman.md) documenta cómo reproducir esas pruebas. El usuario también validó en Postman la bandeja de notificaciones y la consulta de auditoría de la etapa 7. El siguiente alcance de backend es la etapa 8, correo y ciclo de cuenta. Las pantallas siguen pendientes de su entrega web.
 
 Verificación de etapa 6: compilación TypeScript aislada, ESLint y Prisma validate correctos; pruebas de DTO, metadatos de guardas, composición de módulos y transacciones PostgreSQL en esquema temporal. Incluye versiones, permisos, índice único, competencia entre asignaciones/baja de miembro, rollback de auditoría, supervisión y cancelación con invalidación IA. La validación manual de la API se registró por separado en el estado de la etapa.
 

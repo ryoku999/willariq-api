@@ -187,7 +187,12 @@ export class UsersService {
       }
       const updated = await transaction.user.update({
         where: { id: userId },
-        data: { status: dto.status },
+        data: {
+          status: dto.status,
+          ...(dto.status !== UserStatus.ACTIVE
+            ? { sessionVersion: { increment: 1 } }
+            : {}),
+        },
         select: {
           id: true,
           firstName: true,
@@ -204,6 +209,9 @@ export class UsersService {
       });
 
       if (dto.status !== UserStatus.ACTIVE) {
+        await transaction.passwordResetToken.deleteMany({
+          where: { userId, usedAt: null },
+        });
         await transaction.refreshToken.deleteMany({ where: { userId } });
         await transaction.emailVerificationToken.updateMany({
           where: { userId, usedAt: null, revokedAt: null },

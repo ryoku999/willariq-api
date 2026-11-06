@@ -1,5 +1,21 @@
 import z from 'zod';
 
+const mailLink = z.url().refine((value) => {
+  try {
+    const url = new URL(value);
+    return (
+      !url.username &&
+      !url.password &&
+      !url.hash &&
+      (url.protocol === 'https:' ||
+        (url.protocol === 'http:' &&
+          ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)))
+    );
+  } catch {
+    return false;
+  }
+}, 'Usa una URL HTTPS o HTTP local sin credenciales ni fragmento');
+
 export const envSchema = z
   .object({
     NODE_ENV: z
@@ -22,6 +38,34 @@ export const envSchema = z
     JWT_SECRET: z.string(),
     JWT_ISSUER: z.string(),
     JWT_AUDIENCE: z.string(),
+    SMTP_HOST: z.string().trim().min(1).optional(),
+    SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(465),
+    SMTP_SECURE: z
+      .enum(['true', 'false'])
+      .default('true')
+      .transform((value) => value === 'true'),
+    SMTP_USER: z.email().optional(),
+    SMTP_PASS: z.string().min(1).optional(),
+    MAIL_FROM: z
+      .string()
+      .trim()
+      .min(1)
+      .regex(/^[^\r\n]+$/)
+      .optional(),
+    EMAIL_VERIFICATION_URL: mailLink.optional(),
+    PASSWORD_RESET_URL: mailLink.optional(),
+    EMAIL_TOKEN_TTL_MINUTES: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(1440)
+      .default(60),
+    PASSWORD_RESET_TOKEN_TTL_MINUTES: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(1440)
+      .default(30),
     INCIDENT_TRACKING_PREFIX: z
       .string()
       .trim()
@@ -144,6 +188,24 @@ export const envSchema = z
         path: ['AI_JOB_HEARTBEAT_SECONDS'],
         message: 'El heartbeat debe ser menor a la mitad del lease',
       });
+    const mailKeys = [
+      'SMTP_HOST',
+      'SMTP_USER',
+      'SMTP_PASS',
+      'MAIL_FROM',
+      'EMAIL_VERIFICATION_URL',
+      'PASSWORD_RESET_URL',
+    ] as const;
+    if (mailKeys.some((key) => env[key] !== undefined)) {
+      for (const key of mailKeys) {
+        if (!env[key])
+          context.addIssue({
+            code: 'custom',
+            path: [key],
+            message: 'Completa la configuracion de correo SMTP',
+          });
+      }
+    }
     if (!env.MINIO_ENABLED) return;
     for (const key of [
       'MINIO_ENDPOINT',
