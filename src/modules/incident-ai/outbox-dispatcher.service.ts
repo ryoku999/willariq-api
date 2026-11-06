@@ -16,9 +16,22 @@ export class OutboxDispatcherService implements OnModuleDestroy {
 
   constructor(
     private readonly db: DatabaseService,
-    private readonly config: ConfigService,
+    protected readonly config: ConfigService,
     private readonly queue: IncidentQueueService,
   ) {}
+
+  protected get eventType(): string {
+    return CLASSIFICATION_EVENT;
+  }
+  protected get jobType(): 'INCIDENT_ANALYSIS' | 'EMBEDDING_DOCUMENT' {
+    return 'INCIDENT_ANALYSIS';
+  }
+  protected get enabled() {
+    return Boolean(
+      this.config.get<boolean>('AI_ENABLED') ||
+      this.config.get<boolean>('AI_WORKER_ENABLED'),
+    );
+  }
 
   @Interval(250)
   async tick() {
@@ -26,8 +39,7 @@ export class OutboxDispatcherService implements OnModuleDestroy {
       this.stopping ||
       this.busy ||
       Date.now() < this.nextPoll ||
-      (!this.config.get<boolean>('AI_ENABLED') &&
-        !this.config.get<boolean>('AI_WORKER_ENABLED'))
+      !this.enabled
     )
       return;
     this.busy = true;
@@ -46,7 +58,7 @@ export class OutboxDispatcherService implements OnModuleDestroy {
         const entry = await this.db.$transaction(async (tx) => {
           const rows = await tx.$queryRaw<
             { id: string }[]
-          >`SELECT id FROM queue_outbox WHERE "eventType" = ${CLASSIFICATION_EVENT} AND status = 'PENDING' AND "availableAt" <= CURRENT_TIMESTAMP AT TIME ZONE 'UTC' ORDER BY "createdAt", id LIMIT 1 FOR UPDATE SKIP LOCKED`;
+          >`SELECT id FROM queue_outbox WHERE "eventType" = ${this.eventType} AND status = 'PENDING' AND "availableAt" <= CURRENT_TIMESTAMP AT TIME ZONE 'UTC' ORDER BY "createdAt", id LIMIT 1 FOR UPDATE SKIP LOCKED`;
           if (!rows.length) return null;
           return tx.queueOutbox.update({
             where: { id: rows[0].id },
@@ -113,7 +125,7 @@ export class OutboxDispatcherService implements OnModuleDestroy {
     const expired = new Date(Date.now() - 30000);
     await this.db.queueOutbox.updateMany({
       where: {
-        eventType: CLASSIFICATION_EVENT,
+        eventType: this.eventType,
         status: 'PROCESSING',
         lockedAt: { lt: expired },
       },
@@ -127,7 +139,7 @@ export class OutboxDispatcherService implements OnModuleDestroy {
     // Multi-instance reconciliation uses a short PostgreSQL lease, not an in-process lock alone.
     const candidates = await this.db.aiJob.findMany({
       where: {
-        type: 'INCIDENT_ANALYSIS',
+        type: this.jobType,
         OR: [
           { status: 'PROCESSING', processingLeaseUntil: { lt: new Date() } },
           { status: { in: ['PENDING', 'QUEUED'] }, updatedAt: { lt: expired } },
@@ -158,7 +170,7 @@ export class OutboxDispatcherService implements OnModuleDestroy {
         // Even after Redis data loss, PUBLISHED entries are republished. DEAD requires admin action.
         await tx.queueOutbox.updateMany({
           where: {
-            eventType: CLASSIFICATION_EVENT,
+            eventType: this.eventType,
             aggregateId: job.id,
             status: 'PUBLISHED',
           },

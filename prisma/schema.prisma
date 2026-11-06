@@ -684,6 +684,11 @@ model AiJob {
 
   incidentId    String?      @db.Uuid
   incident      Incident?    @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  knowledgeDocumentId String? @db.Uuid
+  knowledgeDocument KnowledgeDocument? @relation(fields: [knowledgeDocumentId], references: [id], onDelete: Cascade)
+  knowledgeChunks KnowledgeChunk[]
+  knowledgePublications KnowledgePublication[]
+
   chatMessageId String?      @db.Uuid
   chatMessage   ChatMessage? @relation(fields: [chatMessageId], references: [id], onDelete: Cascade)
 
@@ -729,6 +734,7 @@ model AiJob {
 
   @@index([status, createdAt])
   @@index([incidentId, createdAt])
+  @@index([knowledgeDocumentId, createdAt])
   @@index([retryOfJobId])
   @@map("ai_jobs")
 }
@@ -805,6 +811,8 @@ model KnowledgeDocument {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  jobs         AiJob[]
+  publications KnowledgePublication[]
   chunks       KnowledgeChunk[]
   uploadIntent KnowledgeUploadIntent?
 
@@ -840,6 +848,10 @@ model KnowledgeChunk {
   tokenCount Int?
   metadata   Json?
 
+  embeddingJobId String? @db.Uuid
+  embeddingJob AiJob? @relation(fields: [embeddingJobId], references: [id], onDelete: Cascade)
+  embeddingDimensions Int?
+
   embeddingProvider AiProvider             @default(OPENROUTER)
   embeddingModel    String                 @db.VarChar(180)
   embedding         Unsupported("vector")?
@@ -850,10 +862,24 @@ model KnowledgeChunk {
 
   aiJobs AiJobKnowledgeChunk[]
 
-  @@unique([documentId, chunkIndex])
+  @@unique([embeddingJobId, chunkIndex])
   @@index([documentId])
   @@index([embeddingModel])
   @@map("knowledge_chunks")
+}
+
+model KnowledgePublication {
+  documentId String @db.Uuid
+  document KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  jobId String @db.Uuid
+  job AiJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  model String @db.VarChar(180)
+  dimensions Int
+  publishedAt DateTime @default(now())
+
+  @@id([documentId, model, dimensions])
+  @@index([model, dimensions])
+  @@map("knowledge_publications")
 }
 
 model AiJobKnowledgeChunk {

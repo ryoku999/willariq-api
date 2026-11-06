@@ -1,3 +1,4 @@
+import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 import { AccountModule } from './modules/account/account.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AssignmentsModule } from './modules/assignments/assignments.module';
@@ -50,6 +51,7 @@ import { QueueModule } from './infrastructure/queue/queue.module';
     AiConfigModule,
     QueueModule,
     IncidentAiModule,
+    KnowledgeModule,
   ],
   controllers: [AppController],
   providers: [

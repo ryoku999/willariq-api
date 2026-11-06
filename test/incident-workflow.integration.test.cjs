@@ -85,6 +85,7 @@ test('Nest resolves the new modules without starting an application or opening s
     envSchema.parse({
       ...process.env,
       MINIO_ENABLED: 'false',
+      MINIO_KNOWLEDGE_BUCKET: undefined,
       AI_ENABLED: 'false',
       AI_WORKER_ENABLED: 'false',
     }),
@@ -150,6 +151,7 @@ test(
         '20261105030000_active_incident_assignment',
         '20261105040000_notification_event_key',
         '20261105050000_account_session_version',
+        '20261106090000_markdown_knowledge',
       ]) {
         const sql = await readFile(
           path.join(__dirname, '../prisma/migrations', name, 'migration.sql'),

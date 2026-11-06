@@ -527,42 +527,43 @@ Rutas implementadas: `PUT /users/me/email`, `POST /users/me/email/verification-r
 
 ## 14. Etapa 9 — Conocimiento y embeddings
 
-**Paquetes:** almacenamiento/colas ya instalados. Empezar con TXT y Markdown, sin parser nuevo. Si se habilita PDF, seleccionar y fijar un extractor mantenido después de comprobar su API; paquete propuesto `pdf-parse` (`pnpm add pdf-parse`), más dependencias/tipos solo si la versión elegida los requiere. PDF escaneado/OCR no forma parte de esa primera extracción.
+**Alcance.** El ADMIN prepara los documentos en su editor y sube únicamente archivos `.md` en UTF-8. La API guarda el original en un bucket privado de RustFS. El worker lee el Markdown como texto, lo divide por encabezados y párrafos y genera embeddings de los fragmentos. Cada fragmento conserva el título, la sección y su orden para poder citarlo. Las referencias a archivos y enlaces se tratan como texto y el worker solo descarga el objeto privado asociado al documento.
 
-**Variables propuestas:**
+**Paquetes y servicios.** Reutilizar Multer, el cliente S3, BullMQ, Prisma y `fetch` de Node. Preparar PostgreSQL con la extensión `vector` activa en la base de la API, Redis, RustFS con un bucket privado dedicado (por ejemplo `municipal-knowledge`) y acceso HTTPS a OpenRouter con la credencial existente. La inferencia se ejecuta en OpenRouter.
+
+**Configuración de la API.**
 
 ```dotenv
-KNOWLEDGE_MAX_DOCUMENT_BYTES=10485760
-KNOWLEDGE_CHUNK_TARGET_TOKENS=600
-KNOWLEDGE_CHUNK_OVERLAP_TOKENS=100
+MINIO_KNOWLEDGE_BUCKET=municipal-knowledge
+KNOWLEDGE_MAX_DOCUMENT_BYTES=1048576
+KNOWLEDGE_CHUNK_TARGET_CHARS=800
+KNOWLEDGE_CHUNK_OVERLAP_CHARS=100
 KNOWLEDGE_WORKER_CONCURRENCY=1
-OPENROUTER_EMBEDDING_MODEL=ELEGIR_MODELO_REAL
-OPENROUTER_EMBEDDING_DIMENSIONS=ELEGIR_DIMENSION_REAL
+OPENROUTER_EMBEDDING_MODEL=nvidia/nemotron-3.5-embed-1b:free
+OPENROUTER_EMBEDDING_DIMENSIONS=2048
 OPENROUTER_EMBEDDING_TIMEOUT_MS=30000
-OPENROUTER_EMBEDDING_BATCH_SIZE=16
+OPENROUTER_EMBEDDING_BATCH_SIZE=4
 ```
 
-Los valores `ELEGIR_*` son pendientes que debes resolver antes de activar el módulo; no son valores válidos para arrancar. Los límites/tokens son iniciales propuestos, no mediciones del proyecto.
+Los límites y tamaños son iniciales. Usar un tope de fragmentos por documento y validar el texto antes de llamar al proveedor. Los encabezados aportan contexto al fragmento y el solapamiento se aplica dentro de la misma sección. Reutilizar `OPENROUTER_API_KEY` y `OPENROUTER_BASE_URL`; guardar la clave únicamente en el entorno privado. El modelo y la dimensión tendrán una sola fuente de configuración en esta etapa.
 
-Usar `KnowledgeDocument`, `KnowledgeChunk` y `AiJob` de embeddings. Añadir vínculo explícito del job al documento, fingerprint de versión y progreso si son necesarios: el `AiJob` actual no tiene `knowledgeDocumentId`. Un procesamiento largo devuelve 202, se ejecuta con BullMQ y permite consultar estado; no copiar el procesamiento síncrono de la guía antigua.
+**Modelo inicial.** Probar [Nemotron 3.5 Embed 1B](https://openrouter.ai/nvidia/nemotron-3.5-embed-1b:free) con sus 2048 dimensiones nativas y comparar con [8B](https://openrouter.ai/nvidia/nemotron-3.5-embed-8b:free) de 4096 usando preguntas municipales en español con secciones esperadas. Medir aciertos en los primeros resultados y latencia. Ambos figuraban con precio cero en el [catálogo de embeddings](https://openrouter.ai/api/v1/embeddings/models) al revisar esta guía. Antes de procesar el corpus, comprobar con un lote pequeño la disponibilidad para la cuenta y la dimensión real devuelta por [`/embeddings`](https://openrouter.ai/docs/api/api-reference/embeddings/create-embeddings).
 
-| Endpoint propuesto, ADMIN                                   | Función                                                    |
-| ----------------------------------------------------------- | ---------------------------------------------------------- |
-| `POST /knowledge/documents`                                 | Multipart `file`, título y tipo; API sube a MinIO privado. |
-| `GET /knowledge/documents` / `GET /knowledge/documents/:id` | Listado y detalle/estado.                                  |
-| `GET /knowledge/documents/:id/content`                      | Descargar documento autenticado.                           |
-| `POST /knowledge/documents/:id/process`                     | Crear job de extracción, fragmentación y embeddings.       |
-| `GET /knowledge/documents/:id/jobs`                         | Progreso/error de procesamiento.                           |
-| `POST /knowledge/documents/:id/publish`                     | Publicar solo READY y versión procesada consistente.       |
-| `POST /knowledge/documents/:id/archive`                     | Excluir del RAG manteniendo historial.                     |
+**Almacenamiento y cambio de modelo.** Conservar la columna `vector` de longitud variable. Guardar proveedor, modelo, dimensión y versión de procesamiento, validar longitud, elementos finitos y norma distinta de cero. Empezar con búsqueda exacta por coseno sobre los fragmentos publicados del mismo perfil que la consulta. Para cambiar a otro perfil, regenerar los vectores de los Markdown originales, comprobar el nuevo conjunto y activar solo un conjunto completo compatible. Dos modelos con la misma longitud pueden producir espacios distintos. Ante límites o indisponibilidad, registrar el error y reintentar con el perfil fijado para el job. El cambio a otro modelo o una ruta de pago requiere una elección explícita. HNSW admite hasta 2000 dimensiones con `vector` y 4000 con `halfvec`; evaluar una reducción soportada por el modelo e índice solo si el volumen y la latencia lo justifican. [Límites de pgvector](https://github.com/pgvector/pgvector).
 
-Elegir un modelo de embeddings, dimensión y métrica; documentos y consultas deben usar el mismo espacio vectorial. No heredar automáticamente 2048 de la guía antigua. Migrar `vector(N)` según el modelo y usar SQL parametrizado para el tipo no soportado. Validar longitud, números finitos, modelo y versión antes de guardar. Reprocesar una nueva versión no debe dejar publicada una mezcla incompleta de chunks.
+**Procesamiento.** Usar `KnowledgeDocument`, `KnowledgeChunk` y `AiJob`. La migración vincula el job al documento y permite publicar conjuntos separados por modelo y dimensión. Responder 202 al encolar y fijar la huella del Markdown y el perfil en el job. Los reintentos reutilizan el mismo trabajo y un proceso incompleto conserva intacto el conjunto publicado.
 
-El índice se elegirá con datos y dimensión concretos: HNSW sobre `vector` admite hasta 2000 dimensiones; no crear ese índice de forma automática para vectores de 2048. Evaluar menor dimensión admitida, búsqueda exacta o `halfvec` compatible cuando corresponda. Referencia: [pgvector e índices](https://github.com/pgvector/pgvector).
+| Endpoint propuesto, ADMIN                                   | Función                                                                         |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `POST /knowledge/documents`                                 | Multipart con `file` Markdown, título y tipo de fuente; almacenamiento privado. |
+| `GET /knowledge/documents` / `GET /knowledge/documents/:id` | Listado y detalle con estado.                                                   |
+| `GET /knowledge/documents/:id/content`                      | Descargar el Markdown autenticado.                                              |
+| `POST /knowledge/documents/:id/process`                     | Encolar fragmentación y embeddings.                                             |
+| `GET /knowledge/documents/:id/jobs`                         | Consultar progreso y error de procesamiento.                                    |
+| `POST /knowledge/documents/:id/publish`                     | Publicar solo la versión READY con vectores completos.                          |
+| `POST /knowledge/documents/:id/archive`                     | Excluir de recuperación y conservar historial.                                  |
 
-Documentos y consultas de conocimiento son datos no confiables: limitar extracción, tamaño descomprimido y contexto; evitar ejecutar enlaces o instrucciones contenidas en los archivos. Las fuentes WEB requieren un módulo posterior con protección SSRF; no habilitar descarga arbitraria de URLs por existir `sourceUrl`.
-
-**Tus tareas:** elegir modelo/dimensión y aportar documentos municipales autorizados. **Panel:** carga, progreso, errores, vista de chunks/metadatos, publicar/archivar. **Pruebas:** tipo inválido, job repetido, error de embedding, dimensión incorrecta y exclusión de documentos archivados. **Cierre:** solo conocimiento listo y publicado es recuperable por RAG.
+**Tus tareas.** Preparar el bucket, la clave y algunos Markdown municipales autorizados en español. Incluir preguntas de prueba con la sección que debería recuperarse. **Pruebas.** Formato inválido, UTF-8 inválido, reintentos, respuestas de proveedor con dimensión inesperada, publicación incompleta, cambio de perfil y exclusión de archivados. **Cierre.** Solo los fragmentos listos y publicados del perfil seleccionado quedan disponibles para el chatbot de la etapa 10.
 
 ## 15. Etapa 10 — Chatbot municipal con fuentes
 
@@ -576,7 +577,7 @@ Rutas propuestas: `POST/GET /chat/sessions`, `GET /chat/sessions/:id`, `GET/POST
 
 Seguimiento por código: consultar BD con autorización sobre la incidencia; un código conocido no concede acceso público a detalles personales. Para preguntas municipales: embedding de consulta, chunks publicados, límite de contexto, respuesta con fuentes e IDs guardados en `AiJobKnowledgeChunk`. Sin evidencia suficiente, decir que no hay información y ofrecer el canal municipal configurado; no inventar trámites, plazos o números de emergencia.
 
-**Panel:** prueba de chatbot para ADMIN y consulta de fuentes; no ofrecer historial privado de ciudadanos a operadores por defecto. **Tus pruebas:** código ajeno, sesión ajena, falta de fuentes, prompt injection dentro de un PDF, timeout e idempotencia. **Cierre:** seguimiento autorizado y respuestas municipales con fuentes verificables.
+**Panel:** prueba de chatbot para ADMIN y consulta de fuentes; no ofrecer historial privado de ciudadanos a operadores por defecto. **Tus pruebas:** código ajeno, sesión ajena, falta de fuentes, prompt injection dentro de un Markdown, timeout e idempotencia. **Cierre:** seguimiento autorizado y respuestas municipales con fuentes verificables.
 
 ## 16. Etapa 11 — Panel completo y aceptación funcional
 
@@ -691,22 +692,23 @@ Para cada módulo registrar al menos: caso correcto, datos inválidos, usuario s
 
 El script actual `pnpm run lint` de API usa `--fix`; para una revisión sin cambios usar una invocación de ESLint sin `--fix`. La existencia de `dist` o `node_modules` no demuestra que el código fuente actual compile ni que haya pasado pruebas.
 
-| Entrega                                                 | Estado al crear esta guía                                                                                                                                 |
-| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Revisión de los tres repositorios y sustitución de guía | Completada documentalmente.                                                                                                                               |
-| Etapa 0: ajustes base                                   | Pendiente de implementación.                                                                                                                              |
-| Etapa 1: áreas/miembros web                             | Pendiente de completar.                                                                                                                                   |
-| Etapa 2: incidencias                                    | Implementada en API y validada manualmente por el usuario. Bandeja/detalle web pendientes.                                                                |
-| Etapa 3: evidencias                                     | Implementada y validada manualmente por el usuario: RAM → MinIO, listado, descarga, retirada y limpieza.                                                  |
-| Etapa 4: configuración IA                               | API implementada; primer prompt preparado; migración y pruebas manuales del usuario pendientes. Panel web pendiente.                                      |
-| Etapa 5: Redis, BullMQ y clasificación                  | API implementada y flujo IA validado manualmente por el usuario.                                                                                          |
-| Etapa 6: revisión humana y asignaciones                 | API implementada y validada por el usuario en Postman, incluidas cancelación y reasignación. Panel pendiente.                                             |
-| Etapa 7: notificaciones y auditoría                     | API implementada y validada por el usuario en Postman. Panel pendiente. [Guía de pruebas](docs/notificaciones-auditoria-postman.md).                      |
-| Etapa 8: correo y ciclo de cuenta                       | API implementada. Migración en base de negocio y validación de envío Gmail en Postman pendientes. [Guía de pruebas](docs/correo-ciclo-cuenta-postman.md). |
-| Etapas 9–12                                             | Planificadas, todavía pendientes.                                                                                                                         |
-| React Native                                            | En espera de que incorpores su carpeta.                                                                                                                   |
+| Entrega                                                 | Estado al crear esta guía                                                                                                                 |
+| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Revisión de los tres repositorios y sustitución de guía | Completada documentalmente.                                                                                                               |
+| Etapa 0: ajustes base                                   | Pendiente de implementación.                                                                                                              |
+| Etapa 1: áreas/miembros web                             | Pendiente de completar.                                                                                                                   |
+| Etapa 2: incidencias                                    | Implementada en API y validada manualmente por el usuario. Bandeja/detalle web pendientes.                                                |
+| Etapa 3: evidencias                                     | Implementada y validada manualmente por el usuario: RAM → MinIO, listado, descarga, retirada y limpieza.                                  |
+| Etapa 4: configuración IA                               | API implementada; primer prompt preparado; migración y pruebas manuales del usuario pendientes. Panel web pendiente.                      |
+| Etapa 5: Redis, BullMQ y clasificación                  | API implementada y flujo IA validado manualmente por el usuario.                                                                          |
+| Etapa 6: revisión humana y asignaciones                 | API implementada y validada por el usuario en Postman, incluidas cancelación y reasignación. Panel pendiente.                             |
+| Etapa 7: notificaciones y auditoría                     | API implementada y validada por el usuario en Postman. Panel pendiente. [Guía de pruebas](docs/notificaciones-auditoria-postman.md).      |
+| Etapa 8: correo y ciclo de cuenta                       | API implementada y validada por el usuario en Postman con Gmail. Panel pendiente. [Guía de pruebas](docs/correo-ciclo-cuenta-postman.md). |
+| Etapa 9: conocimiento Markdown y embeddings | API implementada. Migración en la base de trabajo y validación en Postman pendientes. [Guía de pruebas](docs/conocimiento-markdown-postman.md). |
+| Etapas 10–12                                             | Planificadas, todavía pendientes.                                                                                                         |
+| React Native                                            | En espera de que incorpores su carpeta.                                                                                                   |
 
-El usuario validó la etapa 6 de la API en Postman, incluido el recorrido de revisión y atención, cancelación y reasignación. La [guía Postman de revisión y asignaciones](docs/revision-asignaciones-postman.md) documenta cómo reproducir esas pruebas. El usuario también validó en Postman la bandeja de notificaciones y la consulta de auditoría de la etapa 7. El siguiente alcance de backend es la etapa 8, correo y ciclo de cuenta. Las pantallas siguen pendientes de su entrega web.
+El usuario validó la etapa 6 de la API en Postman, incluido el recorrido de revisión y atención, cancelación y reasignación. La [guía Postman de revisión y asignaciones](docs/revision-asignaciones-postman.md) documenta cómo reproducir esas pruebas. El usuario también validó en Postman la bandeja de notificaciones y la consulta de auditoría de la etapa 7. El usuario validó el ciclo de cuenta de la etapa 8 en Postman con Gmail. El siguiente alcance de backend es la etapa 9, conocimiento municipal en Markdown y embeddings. Las pantallas siguen pendientes de su entrega web.
 
 Verificación de etapa 6: compilación TypeScript aislada, ESLint y Prisma validate correctos; pruebas de DTO, metadatos de guardas, composición de módulos y transacciones PostgreSQL en esquema temporal. Incluye versiones, permisos, índice único, competencia entre asignaciones/baja de miembro, rollback de auditoría, supervisión y cancelación con invalidación IA. La validación manual de la API se registró por separado en el estado de la etapa.
 

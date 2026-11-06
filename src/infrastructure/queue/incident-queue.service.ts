@@ -12,7 +12,17 @@ export class IncidentQueueService implements BeforeApplicationShutdown {
   private producerReady = false;
   private worker?: Worker<{ jobId: string }>;
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(protected readonly config: ConfigService) {}
+
+  protected get queueName() {
+    return INCIDENT_QUEUE;
+  }
+  protected get concurrency() {
+    return this.config.getOrThrow<number>('AI_WORKER_CONCURRENCY');
+  }
+  protected get attempts() {
+    return 1;
+  }
 
   private connection(worker = false): ConnectionOptions {
     return {
@@ -30,11 +40,12 @@ export class IncidentQueueService implements BeforeApplicationShutdown {
 
   queue() {
     if (!this.producer) {
-      this.producer = new Queue<{ jobId: string }>(INCIDENT_QUEUE, {
+      this.producer = new Queue<{ jobId: string }>(this.queueName, {
         prefix: this.config.getOrThrow<string>('BULLMQ_PREFIX'),
         connection: this.connection(),
         defaultJobOptions: {
-          attempts: 1,
+          attempts: this.attempts,
+          backoff: { type: 'exponential', delay: 2000 },
           removeOnComplete: { age: 86400, count: 1000 },
           removeOnFail: { age: 604800, count: 1000 },
         },
@@ -48,14 +59,14 @@ export class IncidentQueueService implements BeforeApplicationShutdown {
   start(process: (id: string) => Promise<void>) {
     if (this.worker) return;
     this.worker = new Worker<{ jobId: string }>(
-      INCIDENT_QUEUE,
+      this.queueName,
       async (job) => {
         await process(job.data.jobId);
       },
       {
         prefix: this.config.getOrThrow<string>('BULLMQ_PREFIX'),
         connection: this.connection(true),
-        concurrency: this.config.getOrThrow<number>('AI_WORKER_CONCURRENCY'),
+        concurrency: this.concurrency,
       },
     );
     this.worker.on('error', () => undefined);

@@ -163,8 +163,21 @@ test(
       },
     );
 
+    await testPool.query(
+      await readFile(
+        path.join(
+          __dirname,
+          '../prisma/migrations/20261106090000_markdown_knowledge/migration.sql',
+        ),
+        'utf8',
+      ),
+    );
     const config = new ConfigService({
-      ...envSchema.parse({ ...process.env, MINIO_ENABLED: 'false' }),
+      ...envSchema.parse({
+        ...process.env,
+        MINIO_ENABLED: 'false',
+        MINIO_KNOWLEDGE_BUCKET: undefined,
+      }),
       MINIO_ENABLED: false,
       AI_ENABLED: false,
       AI_WORKER_ENABLED: false,

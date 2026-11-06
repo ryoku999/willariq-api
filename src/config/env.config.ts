@@ -167,6 +167,57 @@ export const envSchema = z
       .default(2000),
     OUTBOX_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(25),
     OUTBOX_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(100).default(10),
+    MINIO_KNOWLEDGE_BUCKET: z
+      .string()
+      .regex(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/)
+      .optional(),
+    KNOWLEDGE_MAX_DOCUMENT_BYTES: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(1048576)
+      .default(1048576),
+    KNOWLEDGE_CHUNK_TARGET_CHARS: z.coerce
+      .number()
+      .int()
+      .min(200)
+      .max(4000)
+      .default(800),
+    KNOWLEDGE_CHUNK_OVERLAP_CHARS: z.coerce
+      .number()
+      .int()
+      .min(0)
+      .max(500)
+      .default(100),
+    KNOWLEDGE_WORKER_CONCURRENCY: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(4)
+      .default(1),
+    OPENROUTER_EMBEDDING_MODEL: z
+      .string()
+      .regex(/^[a-z0-9._-]+\/[a-z0-9._-]+(?::[a-z0-9._-]+)?$/)
+      .max(180)
+      .default('nvidia/nemotron-3.5-embed-1b:free'),
+    OPENROUTER_EMBEDDING_DIMENSIONS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(4096)
+      .default(2048),
+    OPENROUTER_EMBEDDING_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .min(1000)
+      .max(60000)
+      .default(30000),
+    OPENROUTER_EMBEDDING_BATCH_SIZE: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(16)
+      .default(4),
     OPENROUTER_BASE_URL: z
       .literal('https://openrouter.ai/api/v1')
       .default('https://openrouter.ai/api/v1'),
@@ -205,6 +256,36 @@ export const envSchema = z
             message: 'Completa la configuracion de correo SMTP',
           });
       }
+    }
+    if (env.KNOWLEDGE_CHUNK_OVERLAP_CHARS >= env.KNOWLEDGE_CHUNK_TARGET_CHARS) {
+      context.addIssue({
+        code: 'custom',
+        path: ['KNOWLEDGE_CHUNK_OVERLAP_CHARS'],
+        message: 'El solapamiento debe ser menor al tamano del fragmento',
+      });
+    }
+    if (
+      env.MINIO_KNOWLEDGE_BUCKET &&
+      (!env.MINIO_ENABLED ||
+        !env.OPENROUTER_API_KEY ||
+        env.MINIO_KNOWLEDGE_BUCKET === env.MINIO_EVIDENCE_BUCKET)
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['MINIO_KNOWLEDGE_BUCKET'],
+        message:
+          'Conocimiento requiere almacenamiento habilitado, bucket distinto al de evidencias y OPENROUTER_API_KEY',
+      });
+    }
+    if (
+      env.OPENROUTER_EMBEDDING_MODEL === 'nvidia/nemotron-3.5-embed-1b:free' &&
+      env.OPENROUTER_EMBEDDING_DIMENSIONS !== 2048
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['OPENROUTER_EMBEDDING_DIMENSIONS'],
+        message: 'Nemotron 1B usa 2048 dimensiones en esta configuracion',
+      });
     }
     if (!env.MINIO_ENABLED) return;
     for (const key of [
