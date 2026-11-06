@@ -12,11 +12,11 @@ Completar una plataforma municipal de incidencias: registro ciudadano, evidencia
 
 Responsabilidades por cada entrega:
 
-| Responsable | Trabajo |
-| --- | --- |
-| Tú | Instalar los paquetes indicados para la etapa; preparar credenciales y variables; revisar el código; ejecutar migraciones revisadas y pruebas de endpoints en Postman; validar las pantallas y reglas de negocio. |
-| Asistente | Revisar lo existente; implementar carpetas, DTO, servicios, controladores, permisos, migraciones necesarias y conexión del cliente; documentar peticiones y errores; ejecutar las verificaciones disponibles y explicar lo pendiente. |
-| Ambos | Cerrar una etapa con evidencias de funcionamiento antes de continuar. Registrar aquí cambios de alcance, nombres definitivos y decisiones. |
+| Responsable | Trabajo                                                                                                                                                                                                                               |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tú          | Instalar los paquetes indicados para la etapa; preparar credenciales y variables; revisar el código; ejecutar migraciones revisadas y pruebas de endpoints en Postman; validar las pantallas y reglas de negocio.                     |
+| Asistente   | Revisar lo existente; implementar carpetas, DTO, servicios, controladores, permisos, migraciones necesarias y conexión del cliente; documentar peticiones y errores; ejecutar las verificaciones disponibles y explicar lo pendiente. |
+| Ambos       | Cerrar una etapa con evidencias de funcionamiento antes de continuar. Registrar aquí cambios de alcance, nombres definitivos y decisiones.                                                                                            |
 
 No instalar todos los paquetes de esta guía de una vez. Antes de cada etapa se revisará el `package.json` y la compatibilidad de las versiones concretas; los comandos siguientes indican los paquetes necesarios, no una autorización para actualizarlos indiscriminadamente.
 
@@ -28,37 +28,37 @@ Cada entrega debe incluir: alcance, archivos afectados, paquetes que debes insta
 
 Stack declarado: NestJS 11, Express, TypeScript, Prisma 7.10, PostgreSQL con `pg` y `@prisma/adapter-pg`, Zod, JWT/Passport, bcryptjs, scheduler y throttler. Mantener `src/database`, `src/shared`, `src/config` y los patrones de módulos actuales.
 
-| Componente | Estado encontrado | Trabajo pendiente |
-| --- | --- | --- |
-| Inicio HTTP | Prefijo configurable, CORS con credenciales, Helmet, compresión, cookies, validación global, respuesta `{ success, path, data }`, escucha en `0.0.0.0`. | Mantener contratos; completar tratamiento de errores, trazabilidad y protección de mutaciones web. |
-| Base de datos | `DatabaseService` usa Prisma y adaptador PostgreSQL. | Sus hooks solo escriben logs: verificar conexión inicial y cierre efectivo del cliente/pool con el comportamiento del adaptador instalado. |
-| Configuración | `src/config/env.config.ts` usa Zod; se integra mediante `validationSchema`. | Ampliar el esquema por etapa. El `@nestjs/config` instalado contiene soporte de Standard Schema: no sustituir Zod por Joi por copiar la guía anterior. |
-| Auth | Registro por DNI/teléfono; login, refresh rotatorio y logout web/móvil; cookies HttpOnly; JWT por Bearer o cookie. | Logout global, recuperación de contraseña y flujo de correo no están expuestos. Revisar restricciones del login web a personal municipal. |
-| Seguridad JWT | Consulta rol y estado actuales del usuario en BD. | Conservar esta comprobación para que bloqueos/cambios de rol afecten las peticiones siguientes. |
-| Usuarios | Perfil propio, edición, listado/detalle administrativo, cambio de rol y estado, auditoría y revocación de refresh al cambiar acceso. | Validación concurrente del último administrador y flujos de correo/contraseña posteriores. |
-| Áreas | Crear, listar, consultar, editar y activar/desactivar. | Mantener normalización, unicidad, auditoría y bloqueo de desactivación con asignaciones activas. |
-| Miembros | Alta/reactivación, listado y baja lógica; control de manager y asignaciones activas. | Pantallas completas; revisar conflictos concurrentes con futuras asignaciones. |
-| Auditoría | `AuditService.record` admite cliente transaccional. | Consulta administrativa, filtros y política de retención. |
-| Incidencias | Creación idempotente, consultas, historial y cancelación de RECEIVED implementados y probados por el usuario. | Envío IA, revisión y ciclo operativo posteriores. |
-| Salud | `GET /health` consulta PostgreSQL y Redis/cola si IA está habilitada; Redis caído degrada y BD caída responde 503. | MinIO, métricas de outbox y readiness ampliada posteriores. |
-| Limpieza de tokens | Existe servicio con `@Cron`; scheduler activado al incorporar evidencias. | Seguimiento operativo de tareas periódicas. |
-| MinIO/evidencias | StorageModule y EvidenceModule implementados, solo memoria/MinIO; tipos y paquetes ya instalados por el usuario. | Aceptación manual de endpoints y galería web. |
-| Configuración IA | Endpoints ADMIN de prompts, contratos, rutas y diagnóstico implementados con AJV y auditoría. | Aplicar migración preparada y aceptación manual; interfaz web pendiente. |
-| BullMQ y proveedores IA | Etapa 5 implementada: submit, outbox, worker con leases, clasificación validada, fallback y reintentos auditados. | Aceptación con proveedores reales en Postman; panel pendiente. Ver `docs/postman-incidencias-ia.md`. |
-| Conocimiento/chat/notificaciones | Modelos presentes. | Módulos y endpoints pendientes. |
+| Componente                       | Estado encontrado                                                                                                                                       | Trabajo pendiente                                                                                                                                      |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Inicio HTTP                      | Prefijo configurable, CORS con credenciales, Helmet, compresión, cookies, validación global, respuesta `{ success, path, data }`, escucha en `0.0.0.0`. | Mantener contratos; completar tratamiento de errores, trazabilidad y protección de mutaciones web.                                                     |
+| Base de datos                    | `DatabaseService` usa Prisma y adaptador PostgreSQL.                                                                                                    | Sus hooks solo escriben logs: verificar conexión inicial y cierre efectivo del cliente/pool con el comportamiento del adaptador instalado.             |
+| Configuración                    | `src/config/env.config.ts` usa Zod; se integra mediante `validationSchema`.                                                                             | Ampliar el esquema por etapa. El `@nestjs/config` instalado contiene soporte de Standard Schema: no sustituir Zod por Joi por copiar la guía anterior. |
+| Auth                             | Registro por DNI/teléfono; login, refresh rotatorio y logout web/móvil; cookies HttpOnly; JWT por Bearer o cookie.                                      | Logout global, recuperación de contraseña y flujo de correo no están expuestos. Revisar restricciones del login web a personal municipal.              |
+| Seguridad JWT                    | Consulta rol y estado actuales del usuario en BD.                                                                                                       | Conservar esta comprobación para que bloqueos/cambios de rol afecten las peticiones siguientes.                                                        |
+| Usuarios                         | Perfil propio, edición, listado/detalle administrativo, cambio de rol y estado, auditoría y revocación de refresh al cambiar acceso.                    | Validación concurrente del último administrador y flujos de correo/contraseña posteriores.                                                             |
+| Áreas                            | Crear, listar, consultar, editar y activar/desactivar.                                                                                                  | Mantener normalización, unicidad, auditoría y bloqueo de desactivación con asignaciones activas.                                                       |
+| Miembros                         | Alta/reactivación, listado y baja lógica; control de manager y asignaciones activas.                                                                    | Pantallas completas; revisar conflictos concurrentes con futuras asignaciones.                                                                         |
+| Auditoría                        | `AuditService.record` admite cliente transaccional.                                                                                                     | Consulta administrativa, filtros y política de retención.                                                                                              |
+| Incidencias                      | Creación idempotente, consultas, historial y cancelación de RECEIVED implementados y probados por el usuario.                                           | Envío IA, revisión y ciclo operativo posteriores.                                                                                                      |
+| Salud                            | `GET /health` consulta PostgreSQL y Redis/cola si IA está habilitada; Redis caído degrada y BD caída responde 503.                                      | MinIO, métricas de outbox y readiness ampliada posteriores.                                                                                            |
+| Limpieza de tokens               | Existe servicio con `@Cron`; scheduler activado al incorporar evidencias.                                                                               | Seguimiento operativo de tareas periódicas.                                                                                                            |
+| MinIO/evidencias                 | StorageModule y EvidenceModule implementados, solo memoria/MinIO; tipos y paquetes ya instalados por el usuario.                                        | Aceptación manual de endpoints y galería web.                                                                                                          |
+| Configuración IA                 | Endpoints ADMIN de prompts, contratos, rutas y diagnóstico implementados con AJV y auditoría.                                                           | Aplicar migración preparada y aceptación manual; interfaz web pendiente.                                                                               |
+| BullMQ y proveedores IA          | Etapa 5 implementada: submit, outbox, worker con leases, clasificación validada, fallback y reintentos auditados.                                       | Aceptación con proveedores reales en Postman; panel pendiente. Ver `docs/postman-incidencias-ia.md`.                                                   |
+| Conocimiento/chat/notificaciones | Modelos presentes.                                                                                                                                      | Módulos y endpoints pendientes.                                                                                                                        |
 
 ### 2.2 Panel: `willariq-web-admin`
 
 React 19, Vite, React Router, Axios, TanStack Query, Zustand, React Hook Form, Zod, Tailwind y DaisyUI ya están declarados. Reutilizar `core/entities`, `core/contracts`, `infrastructure/services`, `infrastructure/hooks` y `presentation/features`.
 
-| Componente | Estado encontrado |
-| --- | --- |
-| Sesión | Login, Axios con `withCredentials`, refresh compartido entre peticiones y limpieza de sesión. Zustand persiste información del usuario, no tokens JWT. |
-| Acceso | Guards y layouts para ADMIN, SUPERVISOR y OPERATOR. |
-| Usuarios | Listado, detalle con cambio de rol/estado y perfil propio. |
-| Áreas/miembros | Contratos, entidades y servicios en archivos nuevos; página de áreas de ejemplo sin ruta conectada. Falta completar interfaz. |
-| Dashboards | Vistas iniciales de ejemplo para los tres roles; no son tableros operativos. |
-| Incidencias, IA, asignaciones, conocimiento y auditoría | No se encontraron funcionalidades implementadas. |
+| Componente                                              | Estado encontrado                                                                                                                                      |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Sesión                                                  | Login, Axios con `withCredentials`, refresh compartido entre peticiones y limpieza de sesión. Zustand persiste información del usuario, no tokens JWT. |
+| Acceso                                                  | Guards y layouts para ADMIN, SUPERVISOR y OPERATOR.                                                                                                    |
+| Usuarios                                                | Listado, detalle con cambio de rol/estado y perfil propio.                                                                                             |
+| Áreas/miembros                                          | Contratos, entidades y servicios en archivos nuevos; página de áreas de ejemplo sin ruta conectada. Falta completar interfaz.                          |
+| Dashboards                                              | Vistas iniciales de ejemplo para los tres roles; no son tableros operativos.                                                                           |
+| Incidencias, IA, asignaciones, conocimiento y auditoría | No se encontraron funcionalidades implementadas.                                                                                                       |
 
 Ajustes concretos para la primera entrega web:
 
@@ -70,14 +70,14 @@ Ajustes concretos para la primera entrega web:
 
 ### 2.3 Infraestructura: `willariq-infrastructure`
 
-| Componente | Estado encontrado | Pendiente |
-| --- | --- | --- |
-| PostgreSQL | Compose con `pgvector/pgvector:pg18`, volumen en `/var/lib/postgresql`. | Activación reproducible de extensión `vector`, healthcheck, red privada y configuración de producción. La imagen por sí sola no demuestra que la extensión esté creada en cada BD. |
-| Redis | Redis 7, contraseña, AOF y volumen, healthcheck. | Política `noeviction`, nombres coherentes y red interna de producción. |
-| MinIO | Servicio, volumen e inicializador que crea el bucket de evidencias. | Bucket de conocimiento, credencial limitada para API, imágenes fijadas, revisar healthcheck y separar dirección de consola de API S3. |
-| Documentación/SQL | README y `prisma_manual_extensions.sql` todavía describen PostGIS, `location`, trigger e índice GIST. | Actualizarlos en una entrega de infraestructura: no ejecutar ese SQL sobre este esquema. |
-| Esquema duplicado | Hay otro `schema.prisma` en infraestructura. | Tomar como canónico el de API; retirar o identificar la copia como histórica en una entrega posterior. |
-| Despliegue | No se encontraron Dockerfiles de API/panel ni Compose conjunto de producción en la revisión. | Prepararlos en la etapa de Dokploy. |
+| Componente        | Estado encontrado                                                                                     | Pendiente                                                                                                                                                                          |
+| ----------------- | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PostgreSQL        | Compose con `pgvector/pgvector:pg18`, volumen en `/var/lib/postgresql`.                               | Activación reproducible de extensión `vector`, healthcheck, red privada y configuración de producción. La imagen por sí sola no demuestra que la extensión esté creada en cada BD. |
+| Redis             | Redis 7, contraseña, AOF y volumen, healthcheck.                                                      | Política `noeviction`, nombres coherentes y red interna de producción.                                                                                                             |
+| MinIO             | Servicio, volumen e inicializador que crea el bucket de evidencias.                                   | Bucket de conocimiento, credencial limitada para API, imágenes fijadas, revisar healthcheck y separar dirección de consola de API S3.                                              |
+| Documentación/SQL | README y `prisma_manual_extensions.sql` todavía describen PostGIS, `location`, trigger e índice GIST. | Actualizarlos en una entrega de infraestructura: no ejecutar ese SQL sobre este esquema.                                                                                           |
+| Esquema duplicado | Hay otro `schema.prisma` en infraestructura.                                                          | Tomar como canónico el de API; retirar o identificar la copia como histórica en una entrega posterior.                                                                             |
+| Despliegue        | No se encontraron Dockerfiles de API/panel ni Compose conjunto de producción en la revisión.          | Prepararlos en la etapa de Dokploy.                                                                                                                                                |
 
 Esta revisión fue de archivos y código. No certifica que los contenedores estén activos, que las migraciones estén aplicadas, que las credenciales funcionen o que los endpoints hayan pasado pruebas reales.
 
@@ -127,22 +127,22 @@ La IA sugiere clasificación y redacción; no acepta, rechaza, asigna o cierra i
 
 ## 4. Orden de desarrollo y dependencias
 
-| Etapa | Entrega | Dependencia | Integración web |
-| --- | --- | --- | --- |
-| 0 | Ajustes base, contratos y configuración | Código actual | Sesión, tipos y correcciones existentes |
-| 1 | Completar áreas y miembros en panel | API actual + etapa 0 | CRUD y miembros por permisos |
-| 2 | Incidencias: creación, consultas e historial | Etapa 0 | Bandeja y detalle inicial |
-| 3 | Storage/MinIO y evidencias por Multer | Etapa 2 | Galería privada; ciudadano por Postman |
-| 4 | Configuración IA: prompts y rutas | Etapas 0 y 2 | Configuración ADMIN |
-| 5 | Redis/BullMQ, outbox y clasificación IA | Etapas 2–4 | Seguimiento de análisis, revisión y errores |
-| 6 | Revisión humana y asignaciones | Etapa 5 | Bandejas ADMIN/SUPERVISOR/OPERATOR |
-| 7 | Notificaciones internas y auditoría consultable | Escrituras desde etapas anteriores | Bandeja y bitácora |
-| 8 | Correo y ciclo de cuenta completo | Auth existente | Perfil y recuperación |
-| 9 | Conocimiento, procesamiento y embeddings | Storage + colas + configuración IA | Documentos y publicación ADMIN |
-| 10 | Chatbot con seguimiento y RAG | Etapa 9 | Prueba web y Postman |
-| 11 | Tableros, integración y pruebas de aceptación | Flujo operativo completo | Panel completo por rol |
-| 12 | Docker y despliegue privado en Dokploy | Etapas verificadas | Panel productivo |
-| 13 | React Native | Incorporar carpeta cuando tú lo indiques | Aplicación ciudadana al final |
+| Etapa | Entrega                                         | Dependencia                              | Integración web                             |
+| ----- | ----------------------------------------------- | ---------------------------------------- | ------------------------------------------- |
+| 0     | Ajustes base, contratos y configuración         | Código actual                            | Sesión, tipos y correcciones existentes     |
+| 1     | Completar áreas y miembros en panel             | API actual + etapa 0                     | CRUD y miembros por permisos                |
+| 2     | Incidencias: creación, consultas e historial    | Etapa 0                                  | Bandeja y detalle inicial                   |
+| 3     | Storage/MinIO y evidencias por Multer           | Etapa 2                                  | Galería privada; ciudadano por Postman      |
+| 4     | Configuración IA: prompts y rutas               | Etapas 0 y 2                             | Configuración ADMIN                         |
+| 5     | Redis/BullMQ, outbox y clasificación IA         | Etapas 2–4                               | Seguimiento de análisis, revisión y errores |
+| 6     | Revisión humana y asignaciones                  | Etapa 5                                  | Bandejas ADMIN/SUPERVISOR/OPERATOR          |
+| 7     | Notificaciones internas y auditoría consultable | Escrituras desde etapas anteriores       | Bandeja y bitácora                          |
+| 8     | Correo y ciclo de cuenta completo               | Auth existente                           | Perfil y recuperación                       |
+| 9     | Conocimiento, procesamiento y embeddings        | Storage + colas + configuración IA       | Documentos y publicación ADMIN              |
+| 10    | Chatbot con seguimiento y RAG                   | Etapa 9                                  | Prueba web y Postman                        |
+| 11    | Tableros, integración y pruebas de aceptación   | Flujo operativo completo                 | Panel completo por rol                      |
+| 12    | Docker y despliegue privado en Dokploy          | Etapas verificadas                       | Panel productivo                            |
+| 13    | React Native                                    | Incorporar carpeta cuando tú lo indiques | Aplicación ciudadana al final               |
 
 La etapa 2 es el siguiente módulo de negocio. Las etapas 3–5 completan su flujo con archivos e IA; no acoplar una primera creación de incidencia a todos los proveedores externos.
 
@@ -189,13 +189,13 @@ Preparar un bootstrap administrativo controlado: comando local idempotente y doc
 
 **API existente que se mantiene:**
 
-| Método | Ruta |
-| --- | --- |
-| POST / GET | `/municipal-areas` |
-| GET / PATCH | `/municipal-areas/:id` |
-| PATCH | `/municipal-areas/:id/status` |
-| POST / GET | `/municipal-areas/:id/members` |
-| DELETE | `/municipal-areas/:id/members/:userId` |
+| Método      | Ruta                                   |
+| ----------- | -------------------------------------- |
+| POST / GET  | `/municipal-areas`                     |
+| GET / PATCH | `/municipal-areas/:id`                 |
+| PATCH       | `/municipal-areas/:id/status`          |
+| POST / GET  | `/municipal-areas/:id/members`         |
+| DELETE      | `/municipal-areas/:id/members/:userId` |
 
 ADMIN gestiona áreas. ADMIN o miembro activo MANAGER gestiona miembros; SUPERVISOR no obtiene automáticamente permiso de gestión de miembros por su rol global. Conservar las reglas actuales del servicio. SUPERVISOR puede consultar miembros; OPERATOR consulta según membresía/estado de área.
 
@@ -220,12 +220,12 @@ INCIDENT_TRACKING_TIME_ZONE=America/Lima
 
 **Carpetas previstas:** ampliar `src/modules/incidents/` con `dto/`, políticas de acceso, servicio de código correlativo y reglas de transición. Exportar servicios concretos para asignaciones, evidencias e IA; evitar dependencias circulares entre módulos.
 
-| Endpoint propuesto | Alcance |
-| --- | --- |
-| `POST /incidents` | CITIZEN crea su reporte. |
-| `GET /incidents` | Bandeja paginada: ciudadano solo los propios; personal según alcance. |
-| `GET /incidents/:id` | Detalle autorizado con versión y metadatos operativos. |
-| `GET /incidents/:id/history` | Historial autorizado y paginado. |
+| Endpoint propuesto           | Alcance                                                                                      |
+| ---------------------------- | -------------------------------------------------------------------------------------------- |
+| `POST /incidents`            | CITIZEN crea su reporte.                                                                     |
+| `GET /incidents`             | Bandeja paginada: ciudadano solo los propios; personal según alcance.                        |
+| `GET /incidents/:id`         | Detalle autorizado con versión y metadatos operativos.                                       |
+| `GET /incidents/:id/history` | Historial autorizado y paginado.                                                             |
 | `POST /incidents/:id/cancel` | Ciudadano propietario en RECEIVED; ADMIN/SUPERVISOR según política y estado definidos abajo. |
 
 Creación con `clientRequestId`, `originalMessage`, coordenadas, dirección y referencia opcionales. El servidor determina `reporterId` y el origen según el canal autorizado; no permite suplantar al reportante. Durante Postman se usa el contrato ciudadano/móvil, aunque no exista todavía React Native.
@@ -288,12 +288,12 @@ Límites iniciales: imagen de 5 MiB, cinco imágenes, 25 MiB por incidencia y cu
 
 **Módulos previstos:** `src/infrastructure/storage/` con contrato y adaptador MinIO, y `src/modules/evidence/` para permisos, validación y persistencia.
 
-| Endpoint propuesto | Comportamiento |
-| --- | --- |
-| `POST /incidents/:id/evidence` | `multipart/form-data`, un campo binario `file`; retorna evidencia persistida. |
-| `GET /incidents/:id/evidence` | Lista metadatos autorizados, sin URL pública. |
-| `GET /incidents/:id/evidence/:evidenceId/content` | Stream autenticado del objeto. |
-| `DELETE /incidents/:id/evidence/:evidenceId` | Retirada lógica/según política; borrado físico reconciliable. |
+| Endpoint propuesto                                | Comportamiento                                                                |
+| ------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `POST /incidents/:id/evidence`                    | `multipart/form-data`, un campo binario `file`; retorna evidencia persistida. |
+| `GET /incidents/:id/evidence`                     | Lista metadatos autorizados, sin URL pública.                                 |
+| `GET /incidents/:id/evidence/:evidenceId/content` | Stream autenticado del objeto.                                                |
+| `DELETE /incidents/:id/evidence/:evidenceId`      | Retirada lógica/según política; borrado físico reconciliable.                 |
 
 Primera versión: ciudadano propietario agrega/retira solo en RECEIVED. ADMIN/SUPERVISOR y personal autorizado leen según alcance. Si se requieren fotos de resolución, habilitar su carga solo al responsable y en IN_PROGRESS mediante una evolución que identifique `purpose=REPORT/RESOLUTION`; ese campo no existe actualmente y requiere migración.
 
@@ -323,19 +323,19 @@ La respuesta de descarga debe saltar el interceptor JSON, enviar `Content-Type` 
 
 **Modelos existentes:** `PromptVersion` y `AiRoute`. El módulo `src/modules/ai-config/` ya implementa servicios separados de prompts, rutas, proveedores y validación de esquemas, con auditoría transaccional. La migración `20261015180000_ai_prompt_activation` fija default inactivo y unicidad parcial de activo por capacidad; se preparó y probó en un esquema aislado, sin aplicarla a las tablas de negocio del usuario.
 
-| Endpoint propuesto, solo ADMIN | Función |
-| --- | --- |
-| `POST /admin/ai/prompts` | Crear versión inactiva de un prompt. |
-| `GET /admin/ai/prompts` | Listar por capacidad/nombre/versión/activo. |
-| `GET /admin/ai/prompts/:id` | Leer contenido y esquema. |
-| `POST /admin/ai/prompts/:id/activate` | Activar versión atómicamente. |
-| `POST /admin/ai/prompts/:id/deactivate` | Desactivar, con validación de dependencias. |
-| `POST /admin/ai/routes` | Crear ruta de proveedor/modelo. |
-| `GET /admin/ai/routes` | Listar rutas y estado habilitado. |
-| `PATCH /admin/ai/routes/:id` | Editar modelo, timeout y habilitación. |
-| `PUT /admin/ai/routes/priorities` | Reordenar una capacidad en una transacción sin chocar con prioridades únicas. |
-| `GET /admin/ai/providers/status` | Mostrar solo si hay credencial configurada y disponibilidad conocida. |
-| `POST /admin/ai/config/check` | Validar configuración utilizable sin consumir tokens. |
+| Endpoint propuesto, solo ADMIN          | Función                                                                       |
+| --------------------------------------- | ----------------------------------------------------------------------------- |
+| `POST /admin/ai/prompts`                | Crear versión inactiva de un prompt.                                          |
+| `GET /admin/ai/prompts`                 | Listar por capacidad/nombre/versión/activo.                                   |
+| `GET /admin/ai/prompts/:id`             | Leer contenido y esquema.                                                     |
+| `POST /admin/ai/prompts/:id/activate`   | Activar versión atómicamente.                                                 |
+| `POST /admin/ai/prompts/:id/deactivate` | Desactivar, con validación de dependencias.                                   |
+| `POST /admin/ai/routes`                 | Crear ruta de proveedor/modelo.                                               |
+| `GET /admin/ai/routes`                  | Listar rutas y estado habilitado.                                             |
+| `PATCH /admin/ai/routes/:id`            | Editar modelo, timeout y habilitación.                                        |
+| `PUT /admin/ai/routes/priorities`       | Reordenar una capacidad en una transacción sin chocar con prioridades únicas. |
+| `GET /admin/ai/providers/status`        | Mostrar solo si hay credencial configurada y disponibilidad conocida.         |
+| `POST /admin/ai/config/check`           | Validar configuración utilizable sin consumir tokens.                         |
 
 Una prueba que haga llamadas reales será un endpoint separado y limitado, implementado con etapa 5; indicará consumo y no modificará incidencias productivas.
 
@@ -410,14 +410,14 @@ No se requiere instalar tres SDK. La propuesta inicial es un contrato común con
 
 **Implementación entregada (16/10/2026):** `src/infrastructure/queue/`, `src/modules/incident-ai/`, adaptador HTTP de proveedores, processor y dispatcher con reconciliación. Reutiliza `AiJob`, `AiAttempt`, `QueueOutbox` y el scheduler existente sin migración nueva. Pruebas y ejemplos completos: [Postman: clasificación IA](docs/postman-incidencias-ia.md). La siguiente tabla describe endpoints ya implementados, no solo propuestas. Reintento acotado a último trabajo FAILED en IN_REVIEW sin revisión humana; no reclasifica resultados exitosos.
 
-| Endpoint propuesto | Alcance |
-| --- | --- |
-| `POST /incidents/:id/submit` | Ciudadano propietario envía RECEIVED con `expectedVersion`; devuelve 202 y job/código. |
-| `GET /incidents/:id/ai-jobs` | Estado resumido según acceso a incidencia. |
-| `GET /admin/ai/jobs/:id` | ADMIN/SUPERVISOR; diagnóstico saneado, sin claves. |
-| `POST /incidents/:id/ai/retry` | ADMIN/SUPERVISOR o MANAGER autorizado, sin trabajo activo ni estado terminal. |
-| `GET /admin/queues/outbox` | ADMIN: pendientes, antigüedad y errores. |
-| `POST /admin/queues/outbox/:id/retry` | ADMIN: republicación controlada de DEAD, auditable. |
+| Endpoint propuesto                    | Alcance                                                                                |
+| ------------------------------------- | -------------------------------------------------------------------------------------- |
+| `POST /incidents/:id/submit`          | Ciudadano propietario envía RECEIVED con `expectedVersion`; devuelve 202 y job/código. |
+| `GET /incidents/:id/ai-jobs`          | Estado resumido según acceso a incidencia.                                             |
+| `GET /admin/ai/jobs/:id`              | ADMIN/SUPERVISOR; diagnóstico saneado, sin claves.                                     |
+| `POST /incidents/:id/ai/retry`        | ADMIN/SUPERVISOR o MANAGER autorizado, sin trabajo activo ni estado terminal.          |
+| `GET /admin/queues/outbox`            | ADMIN: pendientes, antigüedad y errores.                                               |
+| `POST /admin/queues/outbox/:id/retry` | ADMIN: republicación controlada de DEAD, auditable.                                    |
 
 Secuencia prevista:
 
@@ -452,20 +452,20 @@ RECEIVED → AI_ANALYSIS → IN_REVIEW → ACCEPTED → ASSIGNED
 
 El modo manual autorizado puede llevar RECEIVED a IN_REVIEW sin IA. `classificationSource` distingue AI, HUMAN y MANUAL_WITHOUT_AI. ACCEPTED es un estado de incidencia; la aceptación del operador se refleja en `IncidentAssignment.status=ACCEPTED` sin confundir ambos enums.
 
-| Endpoint propuesto | Función |
-| --- | --- |
-| `POST /incidents/:id/review` | Completar/corregir clasificación, motivo y versión. |
-| `POST /incidents/:id/accept` | Aceptar desde IN_REVIEW con campos requeridos completos. |
-| `POST /incidents/:id/reject` | Rechazar con motivo/comentario. |
-| `POST /incidents/:id/assignments` | Asignar área y, opcionalmente, operador elegible. |
-| `GET /incidents/:id/assignments` | Historial autorizado. |
-| `POST /incidents/:id/reassignments` | Reasignar conservando `replacesId`. |
-| `GET /assignments/me` | Bandeja de trabajo propia. |
-| `POST /assignments/:id/accept` | Responsable acepta asignación. |
-| `POST /assignments/:id/cancel` | Cancelar asignación con motivo. |
-| `POST /incidents/:id/start` | Iniciar trabajo de asignación aceptada. |
-| `POST /incidents/:id/resolve` | Resolver con resumen obligatorio y evidencia si la política lo exige. |
-| `POST /incidents/:id/close` | ADMIN/SUPERVISOR cierra RESOLVED con asignación completada. |
+| Endpoint propuesto                  | Función                                                               |
+| ----------------------------------- | --------------------------------------------------------------------- |
+| `POST /incidents/:id/review`        | Completar/corregir clasificación, motivo y versión.                   |
+| `POST /incidents/:id/accept`        | Aceptar desde IN_REVIEW con campos requeridos completos.              |
+| `POST /incidents/:id/reject`        | Rechazar con motivo/comentario.                                       |
+| `POST /incidents/:id/assignments`   | Asignar área y, opcionalmente, operador elegible.                     |
+| `GET /incidents/:id/assignments`    | Historial autorizado.                                                 |
+| `POST /incidents/:id/reassignments` | Reasignar conservando `replacesId`.                                   |
+| `GET /assignments/me`               | Bandeja de trabajo propia.                                            |
+| `POST /assignments/:id/accept`      | Responsable acepta asignación.                                        |
+| `POST /assignments/:id/cancel`      | Cancelar asignación con motivo.                                       |
+| `POST /incidents/:id/start`         | Iniciar trabajo de asignación aceptada.                               |
+| `POST /incidents/:id/resolve`       | Resolver con resumen obligatorio y evidencia si la política lo exige. |
+| `POST /incidents/:id/close`         | ADMIN/SUPERVISOR cierra RESOLVED con asignación completada.           |
 
 Política propuesta: ADMIN/SUPERVISOR revisan y deciden globalmente. MANAGER solo opera incidencias de su área ya autorizada; OPERATOR ordinario acepta/inicia/resuelve su asignación. La bandeja inicial sin área corresponde a ADMIN/SUPERVISOR. `requiresSupervision=true` exige decisión de SUPERVISOR o ADMIN. Ni ciudadanía ni IA pueden saltar este control.
 
@@ -485,14 +485,14 @@ Cancelación de incidencia: ciudadano solo RECEIVED; ADMIN/SUPERVISOR pueden can
 
 Crear desde etapas anteriores las notificaciones de cambios relevantes dentro de la transacción de negocio. Unicitarlas por evento/destinatario para que un retry no duplique la bandeja; el esquema actual no tiene esa restricción y puede necesitar `eventKey` y migración. Evitar notificar a todos los usuarios en cada acción.
 
-| Endpoint propuesto | Acceso |
-| --- | --- |
-| `GET /notifications` | Bandeja propia paginada. |
-| `GET /notifications/unread-count` | Conteo propio. |
-| `PATCH /notifications/:id/read` | Solo destinatario. |
-| `POST /notifications/read-all` | Solo propias. |
-| `GET /admin/audit-logs` | ADMIN con filtros y paginación. |
-| `GET /admin/audit-logs/:id` | ADMIN con proyección saneada. |
+| Endpoint propuesto                | Acceso                          |
+| --------------------------------- | ------------------------------- |
+| `GET /notifications`              | Bandeja propia paginada.        |
+| `GET /notifications/unread-count` | Conteo propio.                  |
+| `PATCH /notifications/:id/read`   | Solo destinatario.              |
+| `POST /notifications/read-all`    | Solo propias.                   |
+| `GET /admin/audit-logs`           | ADMIN con filtros y paginación. |
+| `GET /admin/audit-logs/:id`       | ADMIN con proyección saneada.   |
 
 Definir semántica de `PENDING/SENT/READ`: para bandeja interna puede registrarse entregada al persistir, sin inventar un envío push. `readAt` indica lectura; la entrega externa futura tendrá su propia trazabilidad. Auditar decisiones operativas, cambios de acceso y configuración IA sin registrar contraseñas, tokens ni API keys.
 
@@ -546,15 +546,15 @@ Los valores `ELEGIR_*` son pendientes que debes resolver antes de activar el mó
 
 Usar `KnowledgeDocument`, `KnowledgeChunk` y `AiJob` de embeddings. Añadir vínculo explícito del job al documento, fingerprint de versión y progreso si son necesarios: el `AiJob` actual no tiene `knowledgeDocumentId`. Un procesamiento largo devuelve 202, se ejecuta con BullMQ y permite consultar estado; no copiar el procesamiento síncrono de la guía antigua.
 
-| Endpoint propuesto, ADMIN | Función |
-| --- | --- |
-| `POST /knowledge/documents` | Multipart `file`, título y tipo; API sube a MinIO privado. |
-| `GET /knowledge/documents` / `GET /knowledge/documents/:id` | Listado y detalle/estado. |
-| `GET /knowledge/documents/:id/content` | Descargar documento autenticado. |
-| `POST /knowledge/documents/:id/process` | Crear job de extracción, fragmentación y embeddings. |
-| `GET /knowledge/documents/:id/jobs` | Progreso/error de procesamiento. |
-| `POST /knowledge/documents/:id/publish` | Publicar solo READY y versión procesada consistente. |
-| `POST /knowledge/documents/:id/archive` | Excluir del RAG manteniendo historial. |
+| Endpoint propuesto, ADMIN                                   | Función                                                    |
+| ----------------------------------------------------------- | ---------------------------------------------------------- |
+| `POST /knowledge/documents`                                 | Multipart `file`, título y tipo; API sube a MinIO privado. |
+| `GET /knowledge/documents` / `GET /knowledge/documents/:id` | Listado y detalle/estado.                                  |
+| `GET /knowledge/documents/:id/content`                      | Descargar documento autenticado.                           |
+| `POST /knowledge/documents/:id/process`                     | Crear job de extracción, fragmentación y embeddings.       |
+| `GET /knowledge/documents/:id/jobs`                         | Progreso/error de procesamiento.                           |
+| `POST /knowledge/documents/:id/publish`                     | Publicar solo READY y versión procesada consistente.       |
+| `POST /knowledge/documents/:id/archive`                     | Excluir del RAG manteniendo historial.                     |
 
 Elegir un modelo de embeddings, dimensión y métrica; documentos y consultas deben usar el mismo espacio vectorial. No heredar automáticamente 2048 de la guía antigua. Migrar `vector(N)` según el modelo y usar SQL parametrizado para el tipo no soportado. Validar longitud, números finitos, modelo y versión antes de guardar. Reprocesar una nueva versión no debe dejar publicada una mezcla incompleta de chunks.
 
@@ -584,11 +584,11 @@ Seguimiento por código: consultar BD con autorización sobre la incidencia; un 
 
 Rutas web previstas, adaptadas a los layouts actuales:
 
-| Área web | Secciones |
-| --- | --- |
-| ADMIN | Usuarios, áreas, miembros, incidencias, asignaciones, Configuración IA, trabajos/outbox, conocimiento, auditoría, notificaciones, perfil. |
-| SUPERVISOR | Bandeja global y supervisión, revisión, seguimiento de áreas, asignaciones, cierre, notificaciones, perfil. |
-| OPERATOR | Mis asignaciones, detalle autorizado, aceptar/iniciar/resolver, notificaciones, perfil; gestión de miembros si es MANAGER. |
+| Área web   | Secciones                                                                                                                                 |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| ADMIN      | Usuarios, áreas, miembros, incidencias, asignaciones, Configuración IA, trabajos/outbox, conocimiento, auditoría, notificaciones, perfil. |
+| SUPERVISOR | Bandeja global y supervisión, revisión, seguimiento de áreas, asignaciones, cierre, notificaciones, perfil.                               |
+| OPERATOR   | Mis asignaciones, detalle autorizado, aceptar/iniciar/resolver, notificaciones, perfil; gestión de miembros si es MANAGER.                |
 
 Sustituir dashboards de ejemplo por métricas reales calculadas por API con los mismos permisos. Endpoint propuesto `GET /dashboard/summary` con conteos por estado, prioridad y tiempos definidos; un operador no debe inferir métricas de áreas ajenas. Definir desde qué fecha se mide cada duración y su zona horaria.
 
@@ -602,14 +602,14 @@ Para cada función añadir entidad/contrato, servicio HTTP, hook Query y pantall
 
 Infraestructura es un repositorio de servicios, no un único contenedor que deba contener todas las bases. La topología objetivo será:
 
-| Servicio/contenedor | Responsabilidad | Exposición |
-| --- | --- | --- |
-| PostgreSQL | Datos relacionales y pgvector | Solo red privada. |
-| Redis | BullMQ y persistencia de colas | Solo red privada. |
-| MinIO | Objetos y volúmenes | S3 interno; consola solo acceso administrativo restringido. |
-| API NestJS | HTTP, negocio, dispatcher y worker inicial | Dominio HTTPS de API mediante proxy Dokploy. |
-| Panel | Build estático Vite servido por Nginx u otro servidor estático | Dominio HTTPS del panel. |
-| Worker opcional posterior | Misma imagen de API, proceso de colas independiente | Sin dominio público. |
+| Servicio/contenedor       | Responsabilidad                                                | Exposición                                                  |
+| ------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------- |
+| PostgreSQL                | Datos relacionales y pgvector                                  | Solo red privada.                                           |
+| Redis                     | BullMQ y persistencia de colas                                 | Solo red privada.                                           |
+| MinIO                     | Objetos y volúmenes                                            | S3 interno; consola solo acceso administrativo restringido. |
+| API NestJS                | HTTP, negocio, dispatcher y worker inicial                     | Dominio HTTPS de API mediante proxy Dokploy.                |
+| Panel                     | Build estático Vite servido por Nginx u otro servidor estático | Dominio HTTPS del panel.                                    |
+| Worker opcional posterior | Misma imagen de API, proceso de colas independiente            | Sin dominio público.                                        |
 
 Inicialmente API y worker pueden convivir en un contenedor con concurrencia limitada; disponer de entrypoint/contexto separado para independizarlo si aumenta carga. Si se separa, desactivar worker en HTTP y evitar duplicar schedulers no diseñados para múltiples instancias. Los leases y claves únicas siguen siendo necesarios.
 
@@ -654,17 +654,17 @@ Variable pública: URL HTTPS de API según el mecanismo del proyecto móvil. Nin
 
 No recrear todo el esquema: muchas tablas finales ya existen. Introducir migraciones pequeñas solo para necesidades comprobadas:
 
-| Necesidad | Acción prevista |
-| --- | --- |
+| Necesidad                             | Acción prevista                                                         |
+| ------------------------------------- | ----------------------------------------------------------------------- |
 | Replay de `vector` en BD nueva/shadow | Bootstrap reproducible de extensión revisado contra historial aplicado. |
-| Un prompt activo por capacidad | Índice parcial único y activación transaccional; conservar versiones. |
-| Una asignación activa por incidencia | Índice parcial único para estados activos y reglas transaccionales. |
-| Cuotas de evidencias/idempotencia | Serialización por incidencia y campo/registro de clave si se necesita. |
-| Archivos de resolución | Propósito de evidencia si se habilita esa función. |
-| Notificaciones sin duplicados | Clave de evento/destinatario y unicidad. |
-| Jobs de documentos | Relación documento/job y progreso/versionado necesarios. |
-| Embeddings | Dimensión/modelo/índice elegidos por medición, sin dimensión heredada. |
-| Tablas de upload antiguas | Retiro posterior solo tras comprobar datos y dependencias. |
+| Un prompt activo por capacidad        | Índice parcial único y activación transaccional; conservar versiones.   |
+| Una asignación activa por incidencia  | Índice parcial único para estados activos y reglas transaccionales.     |
+| Cuotas de evidencias/idempotencia     | Serialización por incidencia y campo/registro de clave si se necesita.  |
+| Archivos de resolución                | Propósito de evidencia si se habilita esa función.                      |
+| Notificaciones sin duplicados         | Clave de evento/destinatario y unicidad.                                |
+| Jobs de documentos                    | Relación documento/job y progreso/versionado necesarios.                |
+| Embeddings                            | Dimensión/modelo/índice elegidos por medición, sin dimensión heredada.  |
+| Tablas de upload antiguas             | Retiro posterior solo tras comprobar datos y dependencias.              |
 
 El archivo de configuración actual se llama `prisma7.config.ts`; los comandos deben indicarlo explícitamente mientras conserve ese nombre. Ejecutar desde la raíz de API, después de revisar el SQL y preparar las extensiones:
 
@@ -691,20 +691,20 @@ Para cada módulo registrar al menos: caso correcto, datos inválidos, usuario s
 
 El script actual `pnpm run lint` de API usa `--fix`; para una revisión sin cambios usar una invocación de ESLint sin `--fix`. La existencia de `dist` o `node_modules` no demuestra que el código fuente actual compile ni que haya pasado pruebas.
 
-| Entrega | Estado al crear esta guía |
-| --- | --- |
-| Revisión de los tres repositorios y sustitución de guía | Completada documentalmente. |
-| Etapa 0: ajustes base | Pendiente de implementación. |
-| Etapa 1: áreas/miembros web | Pendiente de completar. |
-| Etapa 2: incidencias | Implementada en API y validada manualmente por el usuario. Bandeja/detalle web pendientes. |
-| Etapa 3: evidencias | Implementada y validada manualmente por el usuario: RAM → MinIO, listado, descarga, retirada y limpieza. |
-| Etapa 4: configuración IA | API implementada; primer prompt preparado; migración y pruebas manuales del usuario pendientes. Panel web pendiente. |
-| Etapa 5: Redis, BullMQ y clasificación | API implementada y flujo IA validado manualmente por el usuario. |
-| Etapa 6: revisión humana y asignaciones | API implementada y validada por el usuario en Postman, incluidas cancelación y reasignación. Panel pendiente. |
-| Etapa 7: notificaciones y auditoría | API implementada y validada por el usuario en Postman. Panel pendiente. [Guía de pruebas](docs/notificaciones-auditoria-postman.md). |
-| Etapa 8: correo y ciclo de cuenta | API implementada. Migración en base de negocio y validación de envío Gmail en Postman pendientes. [Guía de pruebas](docs/correo-ciclo-cuenta-postman.md). |
-| Etapas 9–12 | Planificadas, todavía pendientes. |
-| React Native | En espera de que incorpores su carpeta. |
+| Entrega                                                 | Estado al crear esta guía                                                                                                                                 |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Revisión de los tres repositorios y sustitución de guía | Completada documentalmente.                                                                                                                               |
+| Etapa 0: ajustes base                                   | Pendiente de implementación.                                                                                                                              |
+| Etapa 1: áreas/miembros web                             | Pendiente de completar.                                                                                                                                   |
+| Etapa 2: incidencias                                    | Implementada en API y validada manualmente por el usuario. Bandeja/detalle web pendientes.                                                                |
+| Etapa 3: evidencias                                     | Implementada y validada manualmente por el usuario: RAM → MinIO, listado, descarga, retirada y limpieza.                                                  |
+| Etapa 4: configuración IA                               | API implementada; primer prompt preparado; migración y pruebas manuales del usuario pendientes. Panel web pendiente.                                      |
+| Etapa 5: Redis, BullMQ y clasificación                  | API implementada y flujo IA validado manualmente por el usuario.                                                                                          |
+| Etapa 6: revisión humana y asignaciones                 | API implementada y validada por el usuario en Postman, incluidas cancelación y reasignación. Panel pendiente.                                             |
+| Etapa 7: notificaciones y auditoría                     | API implementada y validada por el usuario en Postman. Panel pendiente. [Guía de pruebas](docs/notificaciones-auditoria-postman.md).                      |
+| Etapa 8: correo y ciclo de cuenta                       | API implementada. Migración en base de negocio y validación de envío Gmail en Postman pendientes. [Guía de pruebas](docs/correo-ciclo-cuenta-postman.md). |
+| Etapas 9–12                                             | Planificadas, todavía pendientes.                                                                                                                         |
+| React Native                                            | En espera de que incorpores su carpeta.                                                                                                                   |
 
 El usuario validó la etapa 6 de la API en Postman, incluido el recorrido de revisión y atención, cancelación y reasignación. La [guía Postman de revisión y asignaciones](docs/revision-asignaciones-postman.md) documenta cómo reproducir esas pruebas. El usuario también validó en Postman la bandeja de notificaciones y la consulta de auditoría de la etapa 7. El siguiente alcance de backend es la etapa 8, correo y ciclo de cuenta. Las pantallas siguen pendientes de su entrega web.
 
