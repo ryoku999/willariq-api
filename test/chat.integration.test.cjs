@@ -148,6 +148,15 @@ test(
         );
       }
       db = new PrismaClient({ adapter: new PrismaPg(pool, { schema }) });
+      await db.embeddingProfile.create({
+        data: {
+          model,
+          dimensions: 2,
+          timeoutMs: 1000,
+          batchSize: 4,
+          active: true,
+        },
+      });
       const config = new ConfigService({
         CHAT_ENABLED: true,
         CHAT_MUNICIPAL_CONTACT: 'https://municipio.example/atencion',
@@ -156,9 +165,6 @@ test(
         RAG_TOP_K: 5,
         RAG_MIN_SIMILARITY: 0.7,
         RAG_MAX_CONTEXT_TOKENS: 4000,
-        OPENROUTER_EMBEDDING_MODEL: model,
-        OPENROUTER_EMBEDDING_DIMENSIONS: 2,
-        OPENROUTER_EMBEDDING_TIMEOUT_MS: 1000,
         OPENROUTER_API_KEY: 'fixture',
         OPENROUTER_BASE_URL: `http://127.0.0.1:${mock.address().port}/api/v1`,
         OUTBOX_POLL_INTERVAL_MS: 0,

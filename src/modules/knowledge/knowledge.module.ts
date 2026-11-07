@@ -6,6 +6,7 @@ import { QueueModule } from '@/infrastructure/queue/queue.module';
 import { StorageModule } from '@/infrastructure/storage/storage.module';
 import { AuditModule } from '../audit/audit.module';
 import { EmbeddingProviderService } from './embedding-provider.service';
+import { EmbeddingProfilesController } from './embedding-profiles.controller';
 import { KnowledgeController } from './knowledge.controller';
 import { KnowledgeDispatcherService } from './knowledge-dispatcher.service';
 import { KnowledgeProcessor } from './knowledge-processor.service';
@@ -31,7 +32,7 @@ import { KnowledgeService } from './knowledge.service';
       }),
     }),
   ],
-  controllers: [KnowledgeController],
+  controllers: [KnowledgeController, EmbeddingProfilesController],
   providers: [
     KnowledgeService,
     KnowledgeDispatcherService,

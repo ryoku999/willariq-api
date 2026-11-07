@@ -195,29 +195,6 @@ export const envSchema = z
       .min(1)
       .max(4)
       .default(1),
-    OPENROUTER_EMBEDDING_MODEL: z
-      .string()
-      .regex(/^[a-z0-9._-]+\/[a-z0-9._-]+(?::[a-z0-9._-]+)?$/)
-      .max(180)
-      .default('nvidia/nemotron-3.5-embed-1b:free'),
-    OPENROUTER_EMBEDDING_DIMENSIONS: z.coerce
-      .number()
-      .int()
-      .min(1)
-      .max(4096)
-      .default(2048),
-    OPENROUTER_EMBEDDING_TIMEOUT_MS: z.coerce
-      .number()
-      .int()
-      .min(1000)
-      .max(60000)
-      .default(30000),
-    OPENROUTER_EMBEDDING_BATCH_SIZE: z.coerce
-      .number()
-      .int()
-      .min(1)
-      .max(16)
-      .default(4),
     CHAT_ENABLED: z
       .enum(['true', 'false'])
       .transform((value) => value === 'true')
@@ -300,16 +277,6 @@ export const envSchema = z
         path: ['MINIO_KNOWLEDGE_BUCKET'],
         message:
           'Conocimiento requiere almacenamiento habilitado, bucket distinto al de evidencias y OPENROUTER_API_KEY',
-      });
-    }
-    if (
-      env.OPENROUTER_EMBEDDING_MODEL === 'nvidia/nemotron-3.5-embed-1b:free' &&
-      env.OPENROUTER_EMBEDDING_DIMENSIONS !== 2048
-    ) {
-      context.addIssue({
-        code: 'custom',
-        path: ['OPENROUTER_EMBEDDING_DIMENSIONS'],
-        message: 'Nemotron 1B usa 2048 dimensiones en esta configuracion',
       });
     }
     if (!env.MINIO_ENABLED) return;

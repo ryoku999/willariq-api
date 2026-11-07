@@ -10,7 +10,7 @@ El módulo reutiliza PostgreSQL con pgvector, Redis/BullMQ y la configuración d
 pnpm exec prisma migrate status --config prisma7.config.ts
 ```
 
-Conserva `OPENROUTER_API_KEY`, `OPENROUTER_EMBEDDING_MODEL` y `OPENROUTER_EMBEDDING_DIMENSIONS`. El perfil de consulta debe coincidir con el de las publicaciones. Asegúrate de tener al menos un documento **publicado**. Un documento en READY sin publicación todavía queda fuera de la búsqueda.
+Conserva `OPENROUTER_API_KEY` y `OPENROUTER_BASE_URL`. El chat usa el perfil de embeddings activo en PostgreSQL y busca publicaciones con ese modelo y dimensiones. [Guía de perfiles](embeddings-perfiles-pruebas.md). Asegúrate de tener al menos un documento **publicado**. Un documento en READY sin publicación todavía queda fuera de la búsqueda.
 
 ```dotenv
 RAG_TOP_K=5

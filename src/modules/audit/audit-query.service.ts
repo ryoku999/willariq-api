@@ -270,6 +270,13 @@ export class AuditQueryService {
             }))
               set(row.id, row.model);
             break;
+          case 'EmbeddingProfile':
+            for (const row of await this.db.embeddingProfile.findMany({
+              where,
+              select: { id: true, model: true, dimensions: true },
+            }))
+              set(row.id, `${row.model} · ${row.dimensions} dimensiones`);
+            break;
           case 'KnowledgeDocument':
             for (const row of await this.db.knowledgeDocument.findMany({
               where,

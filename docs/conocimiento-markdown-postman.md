@@ -12,11 +12,9 @@ KNOWLEDGE_MAX_DOCUMENT_BYTES=1048576
 KNOWLEDGE_CHUNK_TARGET_CHARS=800
 KNOWLEDGE_CHUNK_OVERLAP_CHARS=100
 KNOWLEDGE_WORKER_CONCURRENCY=1
-OPENROUTER_EMBEDDING_MODEL=nvidia/nemotron-3.5-embed-1b:free
-OPENROUTER_EMBEDDING_DIMENSIONS=2048
-OPENROUTER_EMBEDDING_TIMEOUT_MS=30000
-OPENROUTER_EMBEDDING_BATCH_SIZE=4
 ```
+
+El modelo, las dimensiones, el tiempo máximo y el tamaño de lote se administran desde **Configuración de IA → Embeddings de conocimiento**. La migración crea la tabla vacía y conserva los vectores existentes. El ADMIN registra y activa el perfil desde el panel. [Guía de perfiles y reindexación](embeddings-perfiles-pruebas.md).
 
 El módulo reutiliza `MINIO_ENABLED=true`, `BULLMQ_PREFIX`, `OPENROUTER_API_KEY` y `OPENROUTER_BASE_URL`. Configurar el bucket activa el worker y su outbox. La migración vincula trabajos, fragmentos y publicaciones, y conserva la columna vectorial de longitud variable.
 

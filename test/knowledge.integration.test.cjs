@@ -125,6 +125,7 @@ test(
         '20260916021124_init',
         '20261105050000_account_session_version',
         '20261106090000_markdown_knowledge',
+        '20261107120000_embedding_profiles',
       ]) {
         await pool.query(
           await readFile(
@@ -134,15 +135,12 @@ test(
         );
       }
       db = new PrismaClient({ adapter: new PrismaPg(pool, { schema }) });
+      assert.equal(await db.embeddingProfile.count(), 0);
       const config = new ConfigService({
         MINIO_KNOWLEDGE_BUCKET: 'fixture-knowledge',
         KNOWLEDGE_MAX_DOCUMENT_BYTES: 1048576,
         KNOWLEDGE_CHUNK_TARGET_CHARS: 800,
         KNOWLEDGE_CHUNK_OVERLAP_CHARS: 100,
-        OPENROUTER_EMBEDDING_MODEL: model,
-        OPENROUTER_EMBEDDING_DIMENSIONS: 2048,
-        OPENROUTER_EMBEDDING_BATCH_SIZE: 4,
-        OPENROUTER_EMBEDDING_TIMEOUT_MS: 1000,
         OPENROUTER_BASE_URL: `http://127.0.0.1:${server.address().port}/api/v1`,
         OPENROUTER_API_KEY: 'fixture-key',
         OUTBOX_POLL_INTERVAL_MS: 0,
@@ -214,6 +212,24 @@ test(
       await assert.rejects(() => knowledge.publish(admin.id, doc.id), {
         status: 409,
       });
+      const { EmbeddingProfilesController } = load(
+        'modules/knowledge/embedding-profiles.controller',
+      );
+      const profiles = new EmbeddingProfilesController(
+        db,
+        new EmbeddingProviderService(config),
+        knowledge,
+        new AuditService(db),
+      );
+      const actor = { id: admin.id, role: 'ADMIN' };
+      const registered = await profiles.create({
+        model,
+        dimensions: 2048,
+        timeoutMs: 30000,
+        batchSize: 4,
+      });
+      const originalProfile = await profiles.activate(registered.id, actor);
+      assert.equal(originalProfile.active, true);
       const [job, duplicate] = await Promise.all([
         knowledge.process(admin.id, doc.id),
         knowledge.process(admin.id, doc.id),
@@ -234,12 +250,12 @@ test(
       assert.equal((await knowledge.detail(doc.id)).status, 'READY');
       assert.equal((await knowledge.process(admin.id, doc.id)).id, job.id);
       assert.equal(
-        (await search.findPublished(vector, knowledge.profile, 10)).length,
+        (await search.findPublished(vector, originalProfile, 10)).length,
         0,
       );
       const published = await knowledge.publish(admin.id, doc.id);
       assert.equal(published.publications[0].jobId, job.id);
-      const hits = await search.findPublished(vector, knowledge.profile, 10);
+      const hits = await search.findPublished(vector, originalProfile, 10);
       assert.equal(hits.length, 2);
       assert.ok(hits.every((hit) => hit.score === 1));
       assert.ok(hits.some((hit) => hit.section[0] === 'Horarios'));
@@ -247,9 +263,20 @@ test(
       assert.equal(requests.at(-1).authorization, 'Bearer fixture-key');
       assert.equal(requests.at(-1).body.input_type, 'search_document');
 
-      const originalProfile = knowledge.profile;
-      config.set('OPENROUTER_EMBEDDING_MODEL', 'fixture/next-model:free');
-      const next = await knowledge.process(admin.id, doc.id);
+      const candidate = await profiles.create({
+        model: 'fixture/next-model:free',
+        dimensions: 2048,
+        timeoutMs: 1000,
+        batchSize: 4,
+      });
+      assert.equal(candidate.active, false);
+      await assert.rejects(
+        () => profiles.activate(candidate.id, actor),
+        /reindexación/,
+      );
+      assert.equal((await profiles.reindex(candidate.id, actor)).requested, 1);
+      const next = (await knowledge.jobs(doc.id, { page: 1, limit: 10 }))
+        .items[0];
       assert.notEqual(next.id, job.id);
       await dispatcher.tick();
       mode = 'malformed';
@@ -265,15 +292,27 @@ test(
         2,
       );
       assert.equal(
-        (await search.findPublished(vector, knowledge.profile, 10)).length,
+        (await search.findPublished(vector, candidate, 10)).length,
         0,
       );
 
       mode = 'valid';
-      const replacement = await knowledge.process(admin.id, doc.id);
+      const replacement = await knowledge.process(
+        admin.id,
+        doc.id,
+        candidate.id,
+      );
       await dispatcher.tick();
       await processor.run(replacement.id);
-      await knowledge.publish(admin.id, doc.id);
+      assert.equal((await profiles.activate(candidate.id, actor)).active, true);
+      assert.equal(
+        (
+          await db.embeddingProfile.findFirstOrThrow({
+            where: { active: true },
+          })
+        ).id,
+        candidate.id,
+      );
       assert.equal((await knowledge.detail(doc.id)).publications.length, 2);
       assert.equal(
         (await search.findPublished(vector, originalProfile, 10)).length,
@@ -285,7 +324,7 @@ test(
         0,
       );
       assert.equal(
-        (await search.findPublished(vector, knowledge.profile, 10)).length,
+        (await search.findPublished(vector, originalProfile, 10)).length,
         0,
       );
       assert.equal(objects.size, 1);

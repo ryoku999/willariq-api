@@ -1,3 +1,4 @@
+import { activeEmbeddingProfile } from '../knowledge/embedding-profile';
 import {
   BadRequestException,
   ConflictException,
@@ -379,6 +380,7 @@ export class ChatService {
       'CHATBOT',
       prompt.responseSchema,
     );
+    const { model, dimensions, timeoutMs } = await activeEmbeddingProfile(tx);
     return {
       promptVersionId: prompt.id,
       promptHash: sha256(prompt.systemPrompt),
@@ -387,13 +389,9 @@ export class ChatService {
       inputPayload: {
         kind: 'MUNICIPAL',
         profile: {
-          model: this.config.getOrThrow<string>('OPENROUTER_EMBEDDING_MODEL'),
-          dimensions: this.config.getOrThrow<number>(
-            'OPENROUTER_EMBEDDING_DIMENSIONS',
-          ),
-          timeoutMs: this.config.getOrThrow<number>(
-            'OPENROUTER_EMBEDDING_TIMEOUT_MS',
-          ),
+          model,
+          dimensions,
+          timeoutMs,
           topK: this.config.getOrThrow<number>('RAG_TOP_K'),
           similarity: this.config.getOrThrow<number>('RAG_MIN_SIMILARITY'),
           contextBudget: this.config.getOrThrow<number>(

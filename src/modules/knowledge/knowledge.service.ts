@@ -1,3 +1,4 @@
+import { activeEmbeddingProfile } from './embedding-profile';
 import {
   BadRequestException,
   ConflictException,
@@ -72,15 +73,6 @@ export class KnowledgeService {
   get bucket() {
     return this.config.get<string>('MINIO_KNOWLEDGE_BUCKET');
   }
-  get profile() {
-    return {
-      model: this.config.getOrThrow<string>('OPENROUTER_EMBEDDING_MODEL'),
-      dimensions: this.config.getOrThrow<number>(
-        'OPENROUTER_EMBEDDING_DIMENSIONS',
-      ),
-    };
-  }
-
   async upload(
     userId: string,
     dto: UploadKnowledgeDto,
@@ -212,7 +204,7 @@ export class KnowledgeService {
     return bytes;
   }
 
-  async process(userId: string, id: string) {
+  async process(userId: string, id: string, profileId?: string) {
     this.requireBucket();
     return this.db.$transaction(async (tx) => {
       const doc = await lockKnowledgeDocument(tx, id);
@@ -224,6 +216,11 @@ export class KnowledgeService {
       ) {
         throw new ConflictException('El documento no se puede procesar');
       }
+      const profile = profileId
+        ? await tx.embeddingProfile.findUniqueOrThrow({
+            where: { id: profileId },
+          })
+        : await activeEmbeddingProfile(tx);
       const pending = await tx.aiJob.findFirst({
         where: {
           type: 'EMBEDDING_DOCUMENT',
@@ -233,6 +230,16 @@ export class KnowledgeService {
         select: jobSelect,
       });
       if (pending) {
+        const snapshot = jobSnapshot.safeParse(pending.inputPayload);
+        if (
+          !snapshot.success ||
+          snapshot.data.model !== profile.model ||
+          snapshot.data.dimensions !== profile.dimensions
+        ) {
+          throw new ConflictException(
+            'El documento ya se está procesando con otro perfil',
+          );
+        }
         await tx.queueOutbox.updateMany({
           where: {
             eventType: KNOWLEDGE_EVENT,
@@ -251,17 +258,14 @@ export class KnowledgeService {
       const snapshot = {
         version: doc.version,
         checksum: doc.checksum,
-        ...this.profile,
+        model: profile.model,
+        dimensions: profile.dimensions,
         target: this.config.getOrThrow<number>('KNOWLEDGE_CHUNK_TARGET_CHARS'),
         overlap: this.config.getOrThrow<number>(
           'KNOWLEDGE_CHUNK_OVERLAP_CHARS',
         ),
-        batchSize: this.config.getOrThrow<number>(
-          'OPENROUTER_EMBEDDING_BATCH_SIZE',
-        ),
-        timeoutMs: this.config.getOrThrow<number>(
-          'OPENROUTER_EMBEDDING_TIMEOUT_MS',
-        ),
+        batchSize: profile.batchSize,
+        timeoutMs: profile.timeoutMs,
       };
       const latest = await tx.aiJob.findFirst({
         where: { type: 'EMBEDDING_DOCUMENT', knowledgeDocumentId: id },
@@ -349,13 +353,33 @@ export class KnowledgeService {
     };
   }
 
-  async publish(userId: string, id: string) {
+  async publish(
+    userId: string,
+    id: string,
+    profile?: { model: string; dimensions: number },
+  ) {
     return this.db.$transaction(async (tx) => {
       const doc = await lockKnowledgeDocument(tx, id);
       if (doc.status !== 'READY')
         throw new ConflictException('El documento debe estar READY');
       const job = await tx.aiJob.findFirst({
-        where: { knowledgeDocumentId: id, type: 'EMBEDDING_DOCUMENT' },
+        where: {
+          knowledgeDocumentId: id,
+          type: 'EMBEDDING_DOCUMENT',
+          ...(profile
+            ? {
+                AND: [
+                  { inputPayload: { path: ['model'], equals: profile.model } },
+                  {
+                    inputPayload: {
+                      path: ['dimensions'],
+                      equals: profile.dimensions,
+                    },
+                  },
+                ],
+              }
+            : {}),
+        },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       });
       const snapshot = jobSnapshot.safeParse(job?.inputPayload);

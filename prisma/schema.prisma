@@ -933,3 +933,17 @@ model AuditLog {
   @@index([userId, createdAt])
   @@map("audit_logs")
 }
+
+model EmbeddingProfile {
+  id         String     @id @default(uuid(7)) @db.Uuid
+  provider   AiProvider @default(OPENROUTER)
+  model      String     @db.VarChar(180)
+  dimensions Int
+  timeoutMs  Int
+  batchSize  Int
+  active     Boolean    @default(false)
+  createdAt  DateTime   @default(now())
+
+  @@unique([provider, model, dimensions])
+  @@map("embedding_profiles")
+}

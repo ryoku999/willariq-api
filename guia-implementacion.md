@@ -539,13 +539,11 @@ KNOWLEDGE_MAX_DOCUMENT_BYTES=1048576
 KNOWLEDGE_CHUNK_TARGET_CHARS=800
 KNOWLEDGE_CHUNK_OVERLAP_CHARS=100
 KNOWLEDGE_WORKER_CONCURRENCY=1
-OPENROUTER_EMBEDDING_MODEL=nvidia/nemotron-3.5-embed-1b:free
-OPENROUTER_EMBEDDING_DIMENSIONS=2048
-OPENROUTER_EMBEDDING_TIMEOUT_MS=30000
-OPENROUTER_EMBEDDING_BATCH_SIZE=4
 ```
 
-Los límites y tamaños son iniciales. Usar un tope de fragmentos por documento y validar el texto antes de llamar al proveedor. Los encabezados aportan contexto al fragmento y el solapamiento se aplica dentro de la misma sección. Reutilizar `OPENROUTER_API_KEY` y `OPENROUTER_BASE_URL`; guardar la clave únicamente en el entorno privado. El modelo y la dimensión tendrán una sola fuente de configuración en esta etapa.
+El modelo, las dimensiones, el tiempo máximo y el tamaño de lote se administran desde **Configuración de IA → Embeddings de conocimiento**. La migración crea la tabla vacía y conserva los vectores existentes. El ADMIN registra y activa el perfil desde el panel. [Guía de perfiles y reindexación](docs/embeddings-perfiles-pruebas.md).
+
+Los límites y tamaños son iniciales. Usar un tope de fragmentos por documento y validar el texto antes de llamar al proveedor. Los encabezados aportan contexto al fragmento y el solapamiento se aplica dentro de la misma sección. Reutilizar `OPENROUTER_API_KEY` y `OPENROUTER_BASE_URL`; guardar la clave únicamente en el entorno privado.
 
 **Modelo inicial.** Probar [Nemotron 3.5 Embed 1B](https://openrouter.ai/nvidia/nemotron-3.5-embed-1b:free) con sus 2048 dimensiones nativas y comparar con [8B](https://openrouter.ai/nvidia/nemotron-3.5-embed-8b:free) de 4096 usando preguntas municipales en español con secciones esperadas. Medir aciertos en los primeros resultados y latencia. Ambos figuraban con precio cero en el [catálogo de embeddings](https://openrouter.ai/api/v1/embeddings/models) al revisar esta guía. Antes de procesar el corpus, comprobar con un lote pequeño la disponibilidad para la cuenta y la dimensión real devuelta por [`/embeddings`](https://openrouter.ai/docs/api/api-reference/embeddings/create-embeddings).
 
