@@ -3,6 +3,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
@@ -63,6 +64,7 @@ export async function lockKnowledgeDocument(
 
 @Injectable()
 export class KnowledgeService {
+  private readonly logger = new Logger(KnowledgeService.name);
   constructor(
     private readonly db: DatabaseService,
     private readonly config: ConfigService,
@@ -102,7 +104,7 @@ export class KnowledgeService {
     const key = `knowledge/${randomUUID()}.md`;
     await this.storage.put(bucket, key, file.buffer, MARKDOWN_TYPE);
     try {
-      return await this.db.$transaction(async (tx) => {
+      const uploaded = await this.db.$transaction(async (tx) => {
         const doc = await tx.knowledgeDocument.create({
           data: {
             title: dto.title,
@@ -125,6 +127,10 @@ export class KnowledgeService {
         );
         return doc;
       });
+      this.logger.log(
+        `Markdown registrado documento=${uploaded.id} bytes=${file.buffer.length}`,
+      );
+      return uploaded;
     } catch (error) {
       // Check ownership before compensation in case the commit response was lost.
       const committed = await this.db.knowledgeDocument
@@ -206,7 +212,7 @@ export class KnowledgeService {
 
   async process(userId: string, id: string, profileId?: string) {
     this.requireBucket();
-    return this.db.$transaction(async (tx) => {
+    const result = await this.db.$transaction(async (tx) => {
       const doc = await lockKnowledgeDocument(tx, id);
       if (
         doc.status === 'ARCHIVED' ||
@@ -314,6 +320,10 @@ export class KnowledgeService {
       });
       return job;
     });
+    this.logger.log(
+      `Procesamiento solicitado documento=${id} job=${result.id} estado=${result.status}`,
+    );
+    return result;
   }
 
   async jobs(id: string, { page, limit }: IncidentPaginationQueryDto) {

@@ -1,4 +1,9 @@
-import { HttpException, Injectable, OnModuleInit } from '@nestjs/common';
+import {
+  HttpException,
+  Injectable,
+  Logger,
+  OnModuleInit,
+} from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { DatabaseService } from '@/database/database.service';
 import { Prisma } from '@/generated/prisma/client';
@@ -14,6 +19,8 @@ const leaseUntil = () => new Date(Date.now() + 120_000);
 
 @Injectable()
 export class KnowledgeProcessor implements OnModuleInit {
+  private readonly logger = new Logger(KnowledgeProcessor.name);
+
   constructor(
     private readonly db: DatabaseService,
     private readonly queue: KnowledgeQueueService,
@@ -47,6 +54,9 @@ export class KnowledgeProcessor implements OnModuleInit {
     if (!job?.knowledgeDocumentId) return;
     const documentId = job.knowledgeDocumentId;
     const claim = { id, status: 'PROCESSING' as const, processingToken: token };
+    this.logger.log(
+      `Inicio de embeddings job=${id} documento=${documentId} intento=${job.currentRound}/${job.maxRounds}`,
+    );
     const snapshot = jobSnapshot.safeParse(job.inputPayload);
 
     try {
@@ -71,6 +81,9 @@ export class KnowledgeProcessor implements OnModuleInit {
         profile.overlap,
       );
       if (!fragments.length) throw new EmbeddingFailure('EMPTY_MARKDOWN');
+      this.logger.log(
+        `Markdown preparado job=${id} bytes=${raw.length} fragmentos=${fragments.length} modelo=${profile.model} lote=${profile.batchSize}`,
+      );
       const vectors: number[][] = [];
       for (
         let start = 0;
@@ -92,12 +105,20 @@ export class KnowledgeProcessor implements OnModuleInit {
               .filter(Boolean)
               .join('\n\n'),
           );
+        this.logger.log(
+          `Solicitando embeddings job=${id} fragmentos=${start + 1}-${start + inputs.length}/${fragments.length}`,
+        );
         vectors.push(
-          ...(await this.provider.embed(inputs, profile, 'search_document')),
+          ...(await this.provider.embed(
+            inputs,
+            profile,
+            'search_document',
+            id,
+          )),
         );
       }
 
-      await this.db.$transaction(
+      const saved = await this.db.$transaction(
         async (tx) => {
           const current = await lockKnowledgeDocument(tx, documentId);
           if (current.status === 'ARCHIVED') return;
@@ -142,9 +163,14 @@ export class KnowledgeProcessor implements OnModuleInit {
             where: { id: documentId },
             data: { status: 'READY' },
           });
+          return true;
         },
         { timeout: 30_000 },
       );
+      if (saved)
+        this.logger.log(
+          `Embeddings guardados job=${id} fragmentos=${vectors.length}`,
+        );
     } catch (error) {
       const failure =
         error instanceof EmbeddingFailure
@@ -174,6 +200,10 @@ export class KnowledgeProcessor implements OnModuleInit {
           });
         return true;
       });
+      if (changed)
+        this.logger.warn(
+          `Embeddings job=${id} intento=${job.currentRound}/${job.maxRounds} error=${failure.code} reintento=${retry}`,
+        );
       if (changed && retry) throw failure;
     }
   }
