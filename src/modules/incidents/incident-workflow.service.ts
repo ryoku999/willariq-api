@@ -648,23 +648,45 @@ export class IncidentWorkflowService {
             }),
         incident: this.access.readableWhere(actor),
       };
-      const items = await tx.incidentAssignment.findMany({
+      const assignments = await tx.incidentAssignment.findMany({
         where,
-        include: {
-          area: { select: { name: true, code: true } },
-          operator:
-            actor.role === 'CITIZEN'
-              ? false
-              : {
-                  select: { firstName: true, lastName: true },
-                },
-          incident: { select: { trackingCode: true } },
-        },
         orderBy: [{ assignedAt: 'desc' }, { id: 'desc' }],
         skip: (query.page - 1) * query.limit,
         take: query.limit,
       });
       const total = await tx.incidentAssignment.count({ where });
+      const areas = await tx.municipalArea.findMany({
+        where: { id: { in: assignments.map((row) => row.areaId) } },
+        select: { id: true, name: true, code: true },
+      });
+      const incidents = await tx.incident.findMany({
+        where: { id: { in: assignments.map((row) => row.incidentId) } },
+        select: { id: true, trackingCode: true },
+      });
+      const operators =
+        actor.role === 'CITIZEN'
+          ? []
+          : await tx.user.findMany({
+              where: {
+                id: { in: assignments.flatMap((row) => row.operatorId ?? []) },
+              },
+              select: { id: true, firstName: true, lastName: true },
+            });
+      const areaById = new Map(areas.map(({ id, ...area }) => [id, area]));
+      const incidentById = new Map(
+        incidents.map(({ id, ...incident }) => [id, incident]),
+      );
+      const operatorById = new Map(
+        operators.map(({ id, ...operator }) => [id, operator]),
+      );
+      const items = assignments.map((row) => ({
+        ...row,
+        area: areaById.get(row.areaId) ?? null,
+        incident: incidentById.get(row.incidentId) ?? null,
+        ...(actor.role === 'CITIZEN'
+          ? {}
+          : { operator: operatorById.get(row.operatorId ?? '') ?? null }),
+      }));
       return {
         items,
         pagination: {
