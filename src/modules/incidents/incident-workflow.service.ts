@@ -650,6 +650,16 @@ export class IncidentWorkflowService {
       };
       const items = await tx.incidentAssignment.findMany({
         where,
+        include: {
+          area: { select: { name: true, code: true } },
+          operator:
+            actor.role === 'CITIZEN'
+              ? false
+              : {
+                  select: { firstName: true, lastName: true },
+                },
+          incident: { select: { trackingCode: true } },
+        },
         orderBy: [{ assignedAt: 'desc' }, { id: 'desc' }],
         skip: (query.page - 1) * query.limit,
         take: query.limit,

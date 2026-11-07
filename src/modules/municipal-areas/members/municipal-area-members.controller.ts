@@ -1,3 +1,4 @@
+import { SearchMemberCandidatesQueryDto } from './dto/search-member-candidates-query.dto';
 import {
   Body,
   Controller,
@@ -51,6 +52,20 @@ export class MunicipalAreaMembersController {
     @Query() query: ListMunicipalAreaMembersQueryDto,
   ) {
     return this.municipalAreaMembersService.listMembers(actor, areaId, query);
+  }
+
+  @Get(':id/member-candidates')
+  @Auth(UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.OPERATOR)
+  searchCandidates(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) areaId: string,
+    @Query() query: SearchMemberCandidatesQueryDto,
+  ) {
+    return this.municipalAreaMembersService.searchCandidates(
+      actor,
+      areaId,
+      query.search,
+    );
   }
 
   @Delete(':id/members/:userId')

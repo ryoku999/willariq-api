@@ -1,3 +1,4 @@
+import { DashboardController } from './dashboard.controller';
 import { IncidentWorkflowService } from './incident-workflow.service';
 import { IncidentWorkflowController } from './incident-workflow.controller';
 import { Module } from '@nestjs/common';
@@ -9,7 +10,11 @@ import { IncidentTrackingService } from './incident-tracking.service';
 
 @Module({
   imports: [AuditModule],
-  controllers: [IncidentsController, IncidentWorkflowController],
+  controllers: [
+    IncidentsController,
+    IncidentWorkflowController,
+    DashboardController,
+  ],
   providers: [
     IncidentWorkflowService,
     IncidentsService,

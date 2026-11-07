@@ -151,6 +151,7 @@ export class IncidentsService {
         this.access.readableWhere(actor),
         {
           ...(query.status ? { status: query.status } : {}),
+          requiresSupervision: query.requiresSupervision,
           ...(query.type ? { type: query.type } : {}),
           ...(query.category ? { category: query.category } : {}),
           ...(query.urgency ? { urgency: query.urgency } : {}),

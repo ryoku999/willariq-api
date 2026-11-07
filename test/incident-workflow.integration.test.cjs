@@ -257,6 +257,61 @@ test(
       });
 
       await t.test(
+        'dashboard metrics reuse scope for operator, manager and global roles',
+        async () => {
+          const { DashboardController } = load(
+            'modules/incidents/dashboard.controller',
+          );
+          const dashboard = new DashboardController(db, access);
+          const resolvedAt = new Date(Date.now() - 60_000);
+          const visible = await make({
+            status: 'RESOLVED',
+            urgency: 'LOW',
+            resolvedAt,
+            createdAt: new Date(resolvedAt.getTime() - 600_000),
+          });
+          const hiddenCase = await make({
+            status: 'RESOLVED',
+            urgency: 'CRITICAL',
+            resolvedAt,
+            createdAt: new Date(resolvedAt.getTime() - 3600_000),
+          });
+          const waiting = await make({ status: 'IN_REVIEW', urgency: 'HIGH' });
+          await db.incidentAssignment.createMany({
+            data: [
+              {
+                incidentId: visible.id,
+                areaId: area.id,
+                operatorId: operator.id,
+                status: 'COMPLETED',
+              },
+              {
+                incidentId: hiddenCase.id,
+                areaId: foreignArea.id,
+                operatorId: other.id,
+                status: 'COMPLETED',
+              },
+            ],
+          });
+          const personal = await dashboard.summary(operator);
+          assert.equal(personal.total, 1);
+          assert.deepEqual(personal.byUrgency, [{ urgency: 'LOW', count: 1 }]);
+          assert.equal(personal.resolution.averageMinutes, 10);
+          const managed = await dashboard.summary(manager);
+          assert.equal(managed.total, 1);
+          assert.deepEqual(managed.managedAreaIds, [area.id]);
+          for (const actor of [admin, supervisor]) {
+            const global = await dashboard.summary(actor);
+            assert.equal(global.total, 3);
+            assert.equal(global.resolution.averageMinutes, 35);
+          }
+          await db.incident.deleteMany({
+            where: { id: { in: [visible.id, hiddenCase.id, waiting.id] } },
+          });
+        },
+      );
+
+      await t.test(
         'global review; stale version and operator decision denied; manual fallback can be completed',
         async () => {
           const i = await make({

@@ -10,6 +10,7 @@ import { AuditQueryDto } from './audit-query.dto';
 const summary = {
   id: true,
   userId: true,
+  user: { select: { firstName: true, lastName: true } },
   action: true,
   entityType: true,
   entityId: true,
@@ -151,8 +152,12 @@ export class AuditQueryService {
       ],
       { isolationLevel: 'RepeatableRead' },
     );
+    const labels = await this.entityLabels(items);
     return {
-      items,
+      items: items.map((item) => ({
+        ...item,
+        entityLabel: labels.get(this.labelKey(item)) ?? null,
+      })),
       pagination: { page, limit, total, pages: Math.ceil(total / limit) },
     };
   }
@@ -165,10 +170,143 @@ export class AuditQueryService {
     if (!entry)
       throw new NotFoundException('Registro de auditoria no encontrado');
     const { oldValue, newValue, ...metadata } = entry;
+    const labels = await this.entityLabels([entry]);
     return {
       ...metadata,
+      entityLabel: labels.get(this.labelKey(entry)) ?? null,
       oldValue: auditValue(oldValue),
       newValue: auditValue(newValue),
     };
+  }
+
+  private labelKey(entry: { entityType: string; entityId: string | null }) {
+    return `${entry.entityType}:${entry.entityId ?? ''}`;
+  }
+
+  private async entityLabels(
+    entries: { entityType: string; entityId: string | null }[],
+  ) {
+    const groups = new Map<string, Set<string>>();
+    const labels = new Map<string, string>();
+    for (const { entityType, entityId } of entries) {
+      if (!entityId) continue;
+      if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(entityId)) {
+        labels.set(this.labelKey({ entityType, entityId }), entityId);
+        continue;
+      }
+      const group = groups.get(entityType) ?? new Set<string>();
+      group.add(entityId);
+      groups.set(entityType, group);
+    }
+    const name = (user: { firstName: string; lastName: string | null }) =>
+      [user.firstName, user.lastName].filter(Boolean).join(' ');
+    await Promise.all(
+      [...groups].map(async ([type, ids]) => {
+        const where = { id: { in: [...ids] } };
+        const set = (id: string, label: string) =>
+          labels.set(this.labelKey({ entityType: type, entityId: id }), label);
+        switch (type) {
+          case 'Incident':
+            for (const row of await this.db.incident.findMany({
+              where,
+              select: { id: true, trackingCode: true },
+            }))
+              set(row.id, row.trackingCode);
+            break;
+          case 'User':
+            for (const row of await this.db.user.findMany({
+              where,
+              select: { id: true, firstName: true, lastName: true },
+            }))
+              set(row.id, name(row));
+            break;
+          case 'MunicipalArea':
+            for (const row of await this.db.municipalArea.findMany({
+              where,
+              select: { id: true, name: true },
+            }))
+              set(row.id, row.name);
+            break;
+          case 'MunicipalAreaMember':
+            for (const row of await this.db.municipalAreaMember.findMany({
+              where,
+              select: {
+                id: true,
+                area: { select: { name: true } },
+                user: { select: { firstName: true, lastName: true } },
+              },
+            })) {
+              set(row.id, `${name(row.user)} · ${row.area.name}`);
+            }
+            break;
+          case 'IncidentEvidence':
+            for (const row of await this.db.incidentEvidence.findMany({
+              where,
+              select: {
+                id: true,
+                fileName: true,
+                incident: { select: { trackingCode: true } },
+              },
+            })) {
+              set(
+                row.id,
+                [row.incident.trackingCode, row.fileName]
+                  .filter(Boolean)
+                  .join(' · '),
+              );
+            }
+            break;
+          case 'PromptVersion':
+            for (const row of await this.db.promptVersion.findMany({
+              where,
+              select: { id: true, name: true, version: true },
+            }))
+              set(row.id, `${row.name} · v${row.version}`);
+            break;
+          case 'AiRoute':
+            for (const row of await this.db.aiRoute.findMany({
+              where,
+              select: { id: true, model: true },
+            }))
+              set(row.id, row.model);
+            break;
+          case 'KnowledgeDocument':
+            for (const row of await this.db.knowledgeDocument.findMany({
+              where,
+              select: { id: true, title: true },
+            }))
+              set(row.id, row.title);
+            break;
+          case 'QueueOutbox': {
+            const rows = await this.db.queueOutbox.findMany({
+              where: {
+                ...where,
+                eventType: 'INCIDENT_CLASSIFICATION_REQUESTED',
+              },
+              select: { id: true, aggregateId: true },
+            });
+            const jobs = await this.db.aiJob.findMany({
+              where: {
+                id: { in: rows.map((row) => row.aggregateId) },
+                type: 'INCIDENT_ANALYSIS',
+              },
+              select: {
+                id: true,
+                incident: { select: { trackingCode: true } },
+              },
+            });
+            const codes = new Map(
+              jobs.map((job) => [job.id, job.incident?.trackingCode]),
+            );
+            for (const row of rows) {
+              const code = codes.get(row.aggregateId);
+              if (code) set(row.id, code);
+            }
+            break;
+          }
+        }
+      }),
+    );
+    return labels;
   }
 }

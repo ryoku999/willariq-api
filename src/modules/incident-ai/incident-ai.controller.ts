@@ -68,6 +68,12 @@ export class IncidentAiController {
     return this.service.list(actor, id, query);
   }
 
+  @Get('admin/ai/jobs')
+  @Auth(UserRole.ADMIN, UserRole.SUPERVISOR)
+  listAdminJobs(@Query() query: IncidentPaginationQueryDto) {
+    return this.service.listAdminJobs(query);
+  }
+
   @Get('admin/ai/jobs/:id')
   @Auth(UserRole.ADMIN, UserRole.SUPERVISOR)
   detail(@Param('id', ParseUUIDPipe) id: string) {

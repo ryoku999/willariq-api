@@ -169,6 +169,40 @@ export class MunicipalAreaMembersService {
     }
   }
 
+  async searchCandidates(
+    actor: AuthenticatedUser,
+    areaId: string,
+    search: string,
+  ) {
+    await this.assertCanManage(this.db, actor, areaId);
+    const area = await this.db.municipalArea.findUnique({
+      where: { id: areaId },
+      select: { status: true },
+    });
+    if (!area) throw new NotFoundException('Área municipal no encontrada');
+    if (area.status !== MunicipalAreaStatus.ACTIVE) {
+      throw new ConflictException('El área municipal no está activa');
+    }
+
+    return this.db.user.findMany({
+      where: {
+        status: UserStatus.ACTIVE,
+        role: { in: [UserRole.OPERATOR, UserRole.SUPERVISOR] },
+        areaMemberships: { none: { areaId, active: true } },
+        AND: search.split(/\s+/).map((term) => ({
+          OR: [
+            { firstName: { contains: term, mode: 'insensitive' } },
+            { lastName: { contains: term, mode: 'insensitive' } },
+            { email: { contains: term, mode: 'insensitive' } },
+          ],
+        })),
+      },
+      select: { id: true, firstName: true, lastName: true, email: true },
+      orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }, { id: 'asc' }],
+      take: 20,
+    });
+  }
+
   async listMembers(
     actor: AuthenticatedUser,
     areaId: string,

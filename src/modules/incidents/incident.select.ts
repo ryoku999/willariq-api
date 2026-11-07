@@ -26,6 +26,7 @@ export const INCIDENT_DETAIL_SELECT = {
   classificationSource: true,
   sentiment: true,
   keywords: true,
+  entities: { select: { type: true, value: true, confidence: true } },
   aiConfidence: true,
   addressReference: true,
   submittedAt: true,

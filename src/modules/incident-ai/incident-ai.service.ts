@@ -277,7 +277,7 @@ export class IncidentAiService {
         const where = { incidentId: id, type: 'INCIDENT_ANALYSIS' as const };
         const items = await tx.aiJob.findMany({
           where,
-          select: JOB_SELECT,
+          select: { ...JOB_SELECT, errorSummary: true },
           orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
           take: query.limit,
           skip: (query.page - 1) * query.limit,
@@ -288,11 +288,34 @@ export class IncidentAiService {
     );
   }
 
+  async listAdminJobs(query: IncidentPaginationQueryDto) {
+    const where = { type: 'INCIDENT_ANALYSIS' as const };
+    const [items, total] = await this.db.$transaction(
+      [
+        this.db.aiJob.findMany({
+          where,
+          select: {
+            ...JOB_SELECT,
+            errorSummary: true,
+            incident: { select: { trackingCode: true } },
+          },
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          take: query.limit,
+          skip: (query.page - 1) * query.limit,
+        }),
+        this.db.aiJob.count({ where }),
+      ],
+      { isolationLevel: 'RepeatableRead' },
+    );
+    return this.page(items, total, query);
+  }
+
   async detail(id: string) {
     const job = await this.db.aiJob.findFirst({
       where: { id, type: 'INCIDENT_ANALYSIS' },
       select: {
         ...JOB_SELECT,
+        incident: { select: { trackingCode: true } },
         promptVersionId: true,
         promptHash: true,
         responseSchemaHash: true,
@@ -357,7 +380,25 @@ export class IncidentAiService {
       ],
       { isolationLevel: 'RepeatableRead' },
     );
-    return this.page(items, total, query);
+    const jobs = await this.db.aiJob.findMany({
+      where: {
+        id: { in: items.map((item) => item.aggregateId) },
+        type: 'INCIDENT_ANALYSIS',
+      },
+      select: {
+        id: true,
+        incident: { select: { id: true, trackingCode: true } },
+      },
+    });
+    const incidents = new Map(jobs.map((job) => [job.id, job.incident]));
+    return this.page(
+      items.map((item) => ({
+        ...item,
+        incident: incidents.get(item.aggregateId) ?? null,
+      })),
+      total,
+      query,
+    );
   }
 
   async retryOutbox(

@@ -583,9 +583,9 @@ Seguimiento por código: consultar BD con autorización sobre la incidencia; un 
 
 ## 16. Etapa 11 — Panel completo y aceptación funcional
 
-**Paquetes y variables:** ninguno obligatorio. Para un mapa, evaluar `leaflet`, `react-leaflet` y tipos compatibles solo cuando se implemente esa vista; acordar proveedor de teselas y sus condiciones antes de producción. No hace falta PostGIS para dibujar coordenadas.
+**Mapa.** El panel usa Leaflet y React Leaflet con los resultados paginados de incidencias. Las teselas y la atribución se pueden configurar en el panel.
 
-Rutas web previstas, adaptadas a los layouts actuales:
+Secciones web conectadas a los layouts actuales:
 
 | Área web   | Secciones                                                                                                                                 |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
@@ -593,9 +593,11 @@ Rutas web previstas, adaptadas a los layouts actuales:
 | SUPERVISOR | Bandeja global y supervisión, revisión, seguimiento de áreas, asignaciones, cierre, notificaciones, perfil.                               |
 | OPERATOR   | Mis asignaciones, detalle autorizado, aceptar/iniciar/resolver, notificaciones, perfil; gestión de miembros si es MANAGER.                |
 
-Sustituir dashboards de ejemplo por métricas reales calculadas por API con los mismos permisos. Endpoint propuesto `GET /dashboard/summary` con conteos por estado, prioridad y tiempos definidos; un operador no debe inferir métricas de áreas ajenas. Definir desde qué fecha se mide cada duración y su zona horaria.
+Los tres dashboards consultan `GET /dashboard/summary`. El endpoint reutiliza la política de acceso de incidencias para agrupar por estado y urgencia y calcular la duración media del registro a la resolución para casos resueltos en los últimos 30 días corridos.
 
 Para cada función añadir entidad/contrato, servicio HTTP, hook Query y pantalla; invalidar queries afectadas por cambios. Formularios con errores del servidor, botón deshabilitado mientras se procesa y manejo claro de 401, 403, 404, 409, 413 y 429. No almacenar archivos/Blob permanentes en Zustand ni llaves del servidor en el bundle.
+
+[Guía de aceptación en navegador y Postman](docs/panel-etapa-11-pruebas.md).
 
 **Pruebas conjuntas:** reporte → evidencia → submit → IA → revisión → aceptación → asignación → aceptación de operador → inicio → resolución → cierre; notificaciones, auditoría y consultas. Repetir sin IA y con proveedor principal fallido. Verificar concurrencia en decisiones y ausencia de exposición de datos entre roles.
 
@@ -708,7 +710,8 @@ El script actual `pnpm run lint` de API usa `--fix`; para una revisión sin camb
 | Etapa 8: correo y ciclo de cuenta                       | API implementada y validada por el usuario en Postman con Gmail. Panel pendiente. [Guía de pruebas](docs/correo-ciclo-cuenta-postman.md). |
 | Etapa 9: conocimiento Markdown y embeddings | API implementada y validada por el usuario en Postman. Panel pendiente. [Guía de pruebas](docs/conocimiento-markdown-postman.md). |
 | Etapa 10: chatbot municipal con fuentes | API implementada y validada por el usuario en Postman, incluidas citas y seguimiento autorizado. Panel pendiente. [Guía de pruebas](docs/chat-municipal-postman.md). |
-| Etapas 11–12                                             | Planificadas, todavía pendientes.                                                                                                         |
+| Etapa 11: panel completo y métricas por permisos | Implementada en API y panel. Aceptación en navegador pendiente. [Guía de pruebas](docs/panel-etapa-11-pruebas.md). |
+| Etapa 12                                             | Planificadas, todavía pendientes.                                                                                                         |
 | React Native                                            | En espera de que incorpores su carpeta.                                                                                                   |
 
 El usuario validó la etapa 6 de la API en Postman, incluido el recorrido de revisión y atención, cancelación y reasignación. La [guía Postman de revisión y asignaciones](docs/revision-asignaciones-postman.md) documenta cómo reproducir esas pruebas. El usuario también validó en Postman la bandeja de notificaciones y la consulta de auditoría de la etapa 7. El usuario validó el ciclo de cuenta de la etapa 8 en Postman con Gmail. El usuario validó la etapa 9 de conocimiento en Markdown y embeddings en Postman. El usuario validó en Postman la etapa 10 del chatbot, incluidas las citas y el seguimiento autorizado. El siguiente alcance es la etapa 11, panel completo y aceptación funcional.

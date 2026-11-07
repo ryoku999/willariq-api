@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   IncidentCategory,
   IncidentStatus,
@@ -5,6 +6,7 @@ import {
   UrgencyLevel,
 } from '@/generated/prisma/enums';
 import {
+  IsBoolean,
   IsEnum,
   IsISO8601,
   IsOptional,
@@ -18,6 +20,13 @@ export class ListIncidentsQueryDto extends IncidentPaginationQueryDto {
   @IsOptional()
   @IsEnum(IncidentStatus)
   status?: IncidentStatus;
+
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    value === 'true' ? true : value === 'false' ? false : value,
+  )
+  @IsBoolean()
+  requiresSupervision?: boolean;
 
   @IsOptional()
   @IsEnum(IncidentType)

@@ -1,8 +1,9 @@
+import { AUTH_ERROR, authUnauthorized } from '@/shared/errors/auth-errors';
 import { DatabaseService } from '@/database/database.service';
 import { UserStatus } from '@/generated/prisma/enums';
 import { AuthenticatedUser } from '@/shared/interfaces/authenticated-user.interface';
 import { JwtPayload } from '@/shared/interfaces/jwt-payload.interface';
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { Request } from 'express';
@@ -46,11 +47,17 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     });
 
     if (!user || user.status !== UserStatus.ACTIVE) {
-      throw new UnauthorizedException('La cuenta no esta activa');
+      throw authUnauthorized(
+        AUTH_ERROR.ACCESS_TOKEN_INVALID,
+        'La cuenta no esta activa',
+      );
     }
 
     if ((payload.sessionVersion ?? 0) !== user.sessionVersion) {
-      throw new UnauthorizedException('La sesion fue revocada');
+      throw authUnauthorized(
+        AUTH_ERROR.ACCESS_TOKEN_INVALID,
+        'La sesion fue revocada',
+      );
     }
 
     return {
