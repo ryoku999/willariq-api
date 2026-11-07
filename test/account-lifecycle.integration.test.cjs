@@ -139,7 +139,48 @@ test(
         phone: '900000001',
         password,
       });
-      const credentials = await auth.login({ dni: user.dni, password });
+      const staff = await auth.register({
+        firstName: 'Personal',
+        dni: '00000003',
+        phone: '900000003',
+        password,
+      });
+      await db.user.update({
+        where: { id: staff.id },
+        data: { role: 'OPERATOR' },
+      });
+      await assert.rejects(
+        () => auth.login({ dni: staff.dni, password }, 'mobile'),
+        { status: 403 },
+      );
+      const staffSession = await auth.login(
+        { dni: staff.dni, password },
+        'web',
+      );
+      await assert.rejects(
+        () => auth.refresh(staffSession.tokens.refreshToken, 'mobile'),
+        { status: 403 },
+      );
+      const rotated = await auth.refresh(
+        staffSession.tokens.refreshToken,
+        'web',
+      );
+      await auth.logout(rotated.refreshToken);
+      const countBeforeLogin = await db.refreshToken.count();
+      await assert.rejects(
+        () => auth.login({ dni: user.dni, password }, 'web'),
+        { status: 403 },
+      );
+      assert.equal(await db.refreshToken.count(), countBeforeLogin);
+      const credentials = await auth.login(
+        { dni: user.dni, password },
+        'mobile',
+      );
+      await assert.rejects(
+        () => auth.refresh(credentials.tokens.refreshToken, 'web'),
+        { status: 403 },
+      );
+      assert.equal(await db.refreshToken.count(), countBeforeLogin + 1);
       const actor = await strategy.validate(
         jwt.decode(credentials.tokens.accessToken),
       );
@@ -236,7 +277,9 @@ test(
         }),
       ]);
       assert.equal(to, 'mail@example.com');
-      assert.ok((await auth.login({ dni: user.dni, password })).tokens);
+      assert.ok(
+        (await auth.login({ dni: user.dni, password }, 'mobile')).tokens,
+      );
       const resets = await Promise.allSettled([
         account.resetPassword(token, 'recovered-pass'),
         account.resetPassword(token, 'recovered-pass'),
@@ -251,17 +294,23 @@ test(
       );
       await assert.rejects(() => strategy.validate(legacy), { status: 401 });
       await assert.rejects(
-        () => auth.refresh(credentials.tokens.refreshToken),
+        () => auth.refresh(credentials.tokens.refreshToken, 'mobile'),
         { status: 401 },
       );
-      await assert.rejects(() => auth.login({ dni: user.dni, password }), {
-        status: 401,
-      });
+      await assert.rejects(
+        () => auth.login({ dni: user.dni, password }, 'mobile'),
+        {
+          status: 401,
+        },
+      );
 
-      const afterReset = await auth.login({
-        dni: user.dni,
-        password: 'recovered-pass',
-      });
+      const afterReset = await auth.login(
+        {
+          dni: user.dni,
+          password: 'recovered-pass',
+        },
+        'mobile',
+      );
       const newActor = await strategy.validate(
         jwt.decode(afterReset.tokens.accessToken),
       );
@@ -270,16 +319,19 @@ test(
         () => strategy.validate(jwt.decode(afterReset.tokens.accessToken)),
         { status: 401 },
       );
-      const afterChange = await auth.login({
-        dni: user.dni,
-        password: 'new-password',
-      });
+      const afterChange = await auth.login(
+        {
+          dni: user.dni,
+          password: 'new-password',
+        },
+        'mobile',
+      );
       const finalActor = await strategy.validate(
         jwt.decode(afterChange.tokens.accessToken),
       );
 
       const [refresh, logout] = await Promise.allSettled([
-        auth.refresh(afterChange.tokens.refreshToken),
+        auth.refresh(afterChange.tokens.refreshToken, 'mobile'),
         account.logoutAll(finalActor),
       ]);
       assert.equal(logout.status, 'fulfilled');
@@ -288,9 +340,12 @@ test(
           () => strategy.validate(jwt.decode(refresh.value.accessToken)),
           { status: 401 },
         );
-        await assert.rejects(() => auth.refresh(refresh.value.refreshToken), {
-          status: 401,
-        });
+        await assert.rejects(
+          () => auth.refresh(refresh.value.refreshToken, 'mobile'),
+          {
+            status: 401,
+          },
+        );
       } else {
         assert.equal(refresh.reason.status, 401);
       }

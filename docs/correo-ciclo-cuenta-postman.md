@@ -97,3 +97,9 @@ En Postman define `UrlBase` (por ejemplo, `http://localhost:8000/api`). Usa Body
 Las dos acciones privadas `POST /users/me/email/verification-requests` y `POST /auth/logout-all` requieren `Content-Type: application/json`. Usa `{}` como cuerpo. Así, una solicitud web con cookies desde otro origen requiere la validación CORS del backend.
 
 La prueba automatizada usa PostgreSQL temporal y un correo simulado. El envío real a Gmail se verifica con el recorrido anterior cuando enciendas el servidor.
+
+### Roles por canal
+
+- `POST /auth/web/login` y `POST /auth/web/refresh` admiten ADMIN, SUPERVISOR y OPERATOR. Con credenciales válidas de CITIZEN, el login devuelve 403 con `AUTH_CHANNEL_ROLE_FORBIDDEN` y no emite cookies.
+- `POST /auth/mobile/login` y `POST /auth/mobile/refresh` admiten CITIZEN. Con una cuenta de personal devuelven 403 con el mismo código y no emiten tokens.
+- Prueba un refresh en el canal incorrecto y después en el correcto. El primero debe devolver 403 y el segundo debe poder rotar el token. Usa un cliente de prueba separado para cada sesión y limpia las cookies al cambiar de caso.

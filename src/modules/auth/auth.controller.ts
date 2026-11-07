@@ -1,5 +1,6 @@
 import {
   Body,
+  ForbiddenException,
   Controller,
   HttpCode,
   HttpStatus,
@@ -37,7 +38,7 @@ export class AuthController {
     @Body() body: LoginDto,
     @Res({ passthrough: true }) response: Response,
   ): Promise<WebLoginRes> {
-    const result = await this.authService.login(body);
+    const result = await this.authService.login(body, 'web');
     this.authCookieService.setCookies(response, result.tokens);
     return result.user;
   }
@@ -66,8 +67,14 @@ export class AuthController {
       throw new UnauthorizedException('No se encontro el refresh token');
     }
 
-    const tokens = await this.authService.refresh(refreshToken);
-    this.authCookieService.setCookies(response, tokens);
+    try {
+      const tokens = await this.authService.refresh(refreshToken, 'web');
+      this.authCookieService.setCookies(response, tokens);
+    } catch (error) {
+      if (error instanceof ForbiddenException)
+        this.authCookieService.clearCookies(response);
+      throw error;
+    }
 
     return {
       message: 'Token refrescado',
@@ -78,13 +85,13 @@ export class AuthController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   mobileLogin(@Body() body: LoginDto) {
-    return this.authService.login(body);
+    return this.authService.login(body, 'mobile');
   }
 
   @Post('mobile/refresh')
   @HttpCode(HttpStatus.OK)
   mobileRefresh(@Body() body: RefreshTokenDto) {
-    return this.authService.refresh(body.refreshToken);
+    return this.authService.refresh(body.refreshToken, 'mobile');
   }
 
   @Post('mobile/logout')

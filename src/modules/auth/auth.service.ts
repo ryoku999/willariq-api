@@ -2,6 +2,7 @@ import { lockAccount } from './utils/account-lock';
 import { DatabaseService } from '@/database/database.service';
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -22,6 +23,25 @@ import {
   hashRefreshToken,
 } from './utils/auth.utils';
 import { ConfigService } from '@nestjs/config';
+
+type AuthChannel = 'web' | 'mobile';
+
+function assertChannelRole(role: UserRole, channel: AuthChannel) {
+  const allowed =
+    channel === 'mobile'
+      ? role === UserRole.CITIZEN
+      : role === UserRole.ADMIN ||
+        role === UserRole.SUPERVISOR ||
+        role === UserRole.OPERATOR;
+  if (allowed) return;
+  throw new ForbiddenException({
+    code: 'AUTH_CHANNEL_ROLE_FORBIDDEN',
+    message:
+      channel === 'web'
+        ? 'Esta cuenta es ciudadana. Inicia sesión en la app móvil.'
+        : 'Esta cuenta debe iniciar sesión en el panel administrativo.',
+  });
+}
 
 @Injectable()
 export class AuthService {
@@ -85,7 +105,7 @@ export class AuthService {
     }
   }
 
-  async login(dto: LoginDto): Promise<LoginResponseI> {
+  async login(dto: LoginDto, channel: AuthChannel): Promise<LoginResponseI> {
     const userFound = await this.db.user.findUnique({
       where: { dni: dto.dni },
     });
@@ -116,6 +136,7 @@ export class AuthService {
       ) {
         throw new UnauthorizedException('Credenciales incorrectas');
       }
+      assertChannelRole(user.role, channel);
       const tokens = await this.createTokensResponse(
         user.id,
         user.role,
@@ -169,7 +190,10 @@ export class AuthService {
     });
   }
 
-  async refresh(rawRefreshToken: string): Promise<AuthTokens> {
+  async refresh(
+    rawRefreshToken: string,
+    channel: AuthChannel,
+  ): Promise<AuthTokens> {
     const storedToken = await this.db.refreshToken.findUnique({
       where: { tokenHash: hashRefreshToken(rawRefreshToken) },
       select: { id: true, userId: true },
@@ -190,6 +214,7 @@ export class AuthService {
           'El refresh token no es valido o ha expirado',
         );
 
+      assertChannelRole(user.role, channel);
       const tokens = await this.createTokensResponse(
         user.id,
         user.role,
