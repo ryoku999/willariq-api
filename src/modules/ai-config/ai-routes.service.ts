@@ -266,7 +266,9 @@ export class AiRoutesService {
           activePromptId: active.length === 1 ? active[0].id : null,
           enabledRouteIds: enabled.map((route) => route.id),
           configurationReady: issues.length === 0,
-          executionImplemented: item === AiCapability.INCIDENT_CLASSIFICATION,
+          executionImplemented:
+            item === AiCapability.INCIDENT_CLASSIFICATION ||
+            item === AiCapability.CHATBOT,
           issues: [...new Set(issues)],
           providerVerification: 'NOT_CHECKED',
         };

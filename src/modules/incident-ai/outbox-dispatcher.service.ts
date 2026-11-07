@@ -23,7 +23,8 @@ export class OutboxDispatcherService implements OnModuleDestroy {
   protected get eventType(): string {
     return CLASSIFICATION_EVENT;
   }
-  protected get jobType(): 'INCIDENT_ANALYSIS' | 'EMBEDDING_DOCUMENT' {
+  protected get jobType():
+    'INCIDENT_ANALYSIS' | 'EMBEDDING_DOCUMENT' | 'CHAT_RESPONSE' {
     return 'INCIDENT_ANALYSIS';
   }
   protected get enabled() {

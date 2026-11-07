@@ -569,13 +569,15 @@ Los límites y tamaños son iniciales. Usar un tope de fragmentos por documento 
 
 **Paquetes:** ninguno nuevo si se reutilizan adaptadores IA, colas y vector SQL. No se requiere incorporar LangChain para este alcance inicial.
 
-**Variables propuestas:** `RAG_TOP_K=5`, `RAG_MIN_SIMILARITY=0.70`, `RAG_MAX_CONTEXT_TOKENS=4000`, `CHAT_MAX_MESSAGE_CHARS=4000`, `CHAT_MAX_HISTORY_MESSAGES=20`. Ajustar umbral según evaluaciones reales y la métrica elegida; no tratarlo como precisión garantizada.
+**Variables de la API:** `RAG_TOP_K=5`, `RAG_MIN_SIMILARITY=0.70`, `RAG_MAX_CONTEXT_TOKENS=4000`, `CHAT_MAX_MESSAGE_CHARS=4000`, `CHAT_MAX_HISTORY_MESSAGES=20`. Ajustar umbral según evaluaciones reales y la métrica elegida; no tratarlo como precisión garantizada.
 
 Usar PromptVersion/AiRoute con capacidad CHATBOT; el prompt específico se carga por los endpoints ADMIN. No reutilizar el prompt del clasificador para conversación.
 
-Rutas propuestas: `POST/GET /chat/sessions`, `GET /chat/sessions/:id`, `GET/POST /chat/sessions/:id/messages`, `POST /chat/sessions/:id/close` y `GET /chat/jobs/:id`. Solo propietario puede acceder a sesión/job. Mensajes con `clientRequestId` idempotente; encolar respuesta y devolver 202 + job para no mantener la conexión HTTP esperando al proveedor.
+Rutas implementadas: `POST/GET /chat/sessions`, `GET /chat/sessions/:id`, `GET/POST /chat/sessions/:id/messages`, `POST /chat/sessions/:id/close` y `GET /chat/jobs/:id`. Solo propietario puede acceder a sesión/job. Mensajes con `clientRequestId` idempotente; encolar respuesta y devolver 202 + job para no mantener la conexión HTTP esperando al proveedor.
 
 Seguimiento por código: consultar BD con autorización sobre la incidencia; un código conocido no concede acceso público a detalles personales. Para preguntas municipales: embedding de consulta, chunks publicados, límite de contexto, respuesta con fuentes e IDs guardados en `AiJobKnowledgeChunk`. Sin evidencia suficiente, decir que no hay información y ofrecer el canal municipal configurado; no inventar trámites, plazos o números de emergencia.
+
+[Guía de Postman del chatbot](docs/chat-municipal-postman.md). El módulo usa las tablas existentes de sesiones, mensajes, trabajos, outbox y citas.
 
 **Panel:** prueba de chatbot para ADMIN y consulta de fuentes; no ofrecer historial privado de ciudadanos a operadores por defecto. **Tus pruebas:** código ajeno, sesión ajena, falta de fuentes, prompt injection dentro de un Markdown, timeout e idempotencia. **Cierre:** seguimiento autorizado y respuestas municipales con fuentes verificables.
 
@@ -704,11 +706,12 @@ El script actual `pnpm run lint` de API usa `--fix`; para una revisión sin camb
 | Etapa 6: revisión humana y asignaciones                 | API implementada y validada por el usuario en Postman, incluidas cancelación y reasignación. Panel pendiente.                             |
 | Etapa 7: notificaciones y auditoría                     | API implementada y validada por el usuario en Postman. Panel pendiente. [Guía de pruebas](docs/notificaciones-auditoria-postman.md).      |
 | Etapa 8: correo y ciclo de cuenta                       | API implementada y validada por el usuario en Postman con Gmail. Panel pendiente. [Guía de pruebas](docs/correo-ciclo-cuenta-postman.md). |
-| Etapa 9: conocimiento Markdown y embeddings | API implementada. Migración en la base de trabajo y validación en Postman pendientes. [Guía de pruebas](docs/conocimiento-markdown-postman.md). |
-| Etapas 10–12                                             | Planificadas, todavía pendientes.                                                                                                         |
+| Etapa 9: conocimiento Markdown y embeddings | API implementada y validada por el usuario en Postman. Panel pendiente. [Guía de pruebas](docs/conocimiento-markdown-postman.md). |
+| Etapa 10: chatbot municipal con fuentes | API implementada. Validación en Postman y panel pendientes. [Guía de pruebas](docs/chat-municipal-postman.md). |
+| Etapas 11–12                                             | Planificadas, todavía pendientes.                                                                                                         |
 | React Native                                            | En espera de que incorpores su carpeta.                                                                                                   |
 
-El usuario validó la etapa 6 de la API en Postman, incluido el recorrido de revisión y atención, cancelación y reasignación. La [guía Postman de revisión y asignaciones](docs/revision-asignaciones-postman.md) documenta cómo reproducir esas pruebas. El usuario también validó en Postman la bandeja de notificaciones y la consulta de auditoría de la etapa 7. El usuario validó el ciclo de cuenta de la etapa 8 en Postman con Gmail. El siguiente alcance de backend es la etapa 9, conocimiento municipal en Markdown y embeddings. Las pantallas siguen pendientes de su entrega web.
+El usuario validó la etapa 6 de la API en Postman, incluido el recorrido de revisión y atención, cancelación y reasignación. La [guía Postman de revisión y asignaciones](docs/revision-asignaciones-postman.md) documenta cómo reproducir esas pruebas. El usuario también validó en Postman la bandeja de notificaciones y la consulta de auditoría de la etapa 7. El usuario validó el ciclo de cuenta de la etapa 8 en Postman con Gmail. El usuario validó la etapa 9 de conocimiento en Markdown y embeddings en Postman. El siguiente alcance de backend es la etapa 10, chatbot municipal con fuentes. Las pantallas siguen pendientes de su entrega web.
 
 Verificación de etapa 6: compilación TypeScript aislada, ESLint y Prisma validate correctos; pruebas de DTO, metadatos de guardas, composición de módulos y transacciones PostgreSQL en esquema temporal. Incluye versiones, permisos, índice único, competencia entre asignaciones/baja de miembro, rollback de auditoría, supervisión y cancelación con invalidación IA. La validación manual de la API se registró por separado en el estado de la etapa.
 

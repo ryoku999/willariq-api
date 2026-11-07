@@ -218,6 +218,31 @@ export const envSchema = z
       .min(1)
       .max(16)
       .default(4),
+    CHAT_ENABLED: z
+      .enum(['true', 'false'])
+      .transform((value) => value === 'true')
+      .optional(),
+    CHAT_MUNICIPAL_CONTACT: z.string().trim().min(1).max(300).optional(),
+    RAG_TOP_K: z.coerce.number().int().min(1).max(20).default(5),
+    RAG_MIN_SIMILARITY: z.coerce.number().min(0).max(1).default(0.7),
+    RAG_MAX_CONTEXT_TOKENS: z.coerce
+      .number()
+      .int()
+      .min(256)
+      .max(16000)
+      .default(4000),
+    CHAT_MAX_MESSAGE_CHARS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(12000)
+      .default(4000),
+    CHAT_MAX_HISTORY_MESSAGES: z.coerce
+      .number()
+      .int()
+      .min(0)
+      .max(50)
+      .default(20),
     OPENROUTER_BASE_URL: z
       .literal('https://openrouter.ai/api/v1')
       .default('https://openrouter.ai/api/v1'),

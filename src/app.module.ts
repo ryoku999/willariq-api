@@ -1,3 +1,4 @@
+import { ChatModule } from './modules/chat/chat.module';
 import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 import { AccountModule } from './modules/account/account.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
@@ -52,6 +53,7 @@ import { QueueModule } from './infrastructure/queue/queue.module';
     QueueModule,
     IncidentAiModule,
     KnowledgeModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [
