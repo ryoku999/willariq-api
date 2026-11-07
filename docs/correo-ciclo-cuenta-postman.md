@@ -103,3 +103,7 @@ La prueba automatizada usa PostgreSQL temporal y un correo simulado. El envío r
 - `POST /auth/web/login` y `POST /auth/web/refresh` admiten ADMIN, SUPERVISOR y OPERATOR. Con credenciales válidas de CITIZEN, el login devuelve 403 con `AUTH_CHANNEL_ROLE_FORBIDDEN` y no emite cookies.
 - `POST /auth/mobile/login` y `POST /auth/mobile/refresh` admiten CITIZEN. Con una cuenta de personal devuelven 403 con el mismo código y no emiten tokens.
 - Prueba un refresh en el canal incorrecto y después en el correcto. El primero debe devolver 403 y el segundo debe poder rotar el token. Usa un cliente de prueba separado para cada sesión y limpia las cookies al cambiar de caso.
+
+### Código para la app móvil
+
+Los correos de verificación y recuperación incluyen un enlace web y, debajo, el mismo código en texto. En el móvil, copia solo el código y pégalo en el formulario correspondiente. El enlace y el código se consumen con la misma operación de un solo uso.

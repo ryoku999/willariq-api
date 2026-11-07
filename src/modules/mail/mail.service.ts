@@ -51,12 +51,21 @@ export class MailService {
     const subject = verify
       ? 'Verifica tu correo en Willariq'
       : 'Restablece tu contraseña en Willariq';
+    const text = [
+      subject,
+      'Abre este enlace para continuar en la web:',
+      url.href,
+      'Si estás usando la app móvil, copia y pega este código en el formulario:',
+      token,
+      'El enlace y el código sirven para la misma solicitud y solo se pueden usar una vez.',
+      'Si no solicitaste esta acción, puedes ignorar este correo.',
+    ].join('\n\n');
     try {
       const info = await transport.sendMail({
         from: this.config.getOrThrow<string>('MAIL_FROM'),
         to: { name: '', address: to },
         subject,
-        text: `${subject}\n\n${url.href}\n\nSi no solicitaste esta acción, puedes ignorar este correo.`,
+        text,
       });
       if (!info.accepted.length) throw new Error('No recipients accepted');
     } catch {
