@@ -17,6 +17,11 @@ const load = (file) =>
 test('Account lifecycle validates new credentials and protects authenticated routes', async () => {
   const { ValidationPipe } = require('@nestjs/common');
   const { AccountController } = load('modules/account/account.controller');
+  const { UsersController } = load('modules/users/users.controller');
+  assert.deepEqual(
+    Reflect.getMetadata('roles', UsersController.prototype.create),
+    ['ADMIN'],
+  );
   const { SetAccountEmailDto, AccountTokenDto } = load(
     'modules/account/account.dto',
   );
@@ -139,15 +144,30 @@ test(
         phone: '900000001',
         password,
       });
-      const staff = await auth.register({
+      const admin = await auth.register({
+        firstName: 'Admin fixture',
+        dni: '00000004',
+        phone: '900000004',
+        password,
+      });
+      await db.user.update({
+        where: { id: admin.id },
+        data: { role: 'ADMIN' },
+      });
+      const { UsersService } = load('modules/users/users.service');
+      const users = new UsersService(db, new AuditService(db));
+      const input = {
         firstName: 'Personal',
         dni: '00000003',
         phone: '900000003',
         password,
-      });
-      await db.user.update({
-        where: { id: staff.id },
-        data: { role: 'OPERATOR' },
+        role: 'OPERATOR',
+      };
+      const staff = await users.create(admin.id, input, {});
+      assert.equal(staff.role, 'OPERATOR');
+      assert.equal(Object.hasOwn(staff, 'passwordHash'), false);
+      await assert.rejects(() => users.create(admin.id, input, {}), {
+        status: 409,
       });
       await assert.rejects(
         () => auth.login({ dni: staff.dni, password }, 'mobile'),

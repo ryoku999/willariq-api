@@ -1,3 +1,5 @@
+import { createUserAccount } from '../auth/utils/create-user-account';
+import { CreateUserDto } from './dto/create-user.dto';
 import { DatabaseService } from '@/database/database.service';
 import {
   ConflictException,
@@ -23,6 +25,24 @@ export class UsersService {
     private readonly db: DatabaseService,
     private readonly auditService: AuditService,
   ) {}
+
+  create(actorId: string, dto: CreateUserDto, context: RequestAuditContext) {
+    return this.db.$transaction(async (tx) => {
+      const user = await createUserAccount(tx, dto, dto.role);
+      await this.auditService.record(
+        {
+          userId: actorId,
+          action: 'USER_CREATED',
+          entityType: 'User',
+          entityId: user.id,
+          newValue: { role: user.role, status: user.status },
+          ...context,
+        },
+        tx,
+      );
+      return user;
+    });
+  }
 
   async findMe(userId: string) {
     return this.findById(userId);

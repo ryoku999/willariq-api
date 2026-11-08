@@ -1,3 +1,4 @@
+import { CreateUserDto } from './dto/create-user.dto';
 import { Auth } from '@/shared/decorators/auth.decorator';
 import { CurrentUser } from '@/shared/decorators/current-user.decorator';
 import { type AuthenticatedUser } from '@/shared/interfaces/authenticated-user.interface';
@@ -8,6 +9,7 @@ import {
   Param,
   ParseUUIDPipe,
   Patch,
+  Post,
   Query,
   Req,
 } from '@nestjs/common';
@@ -33,6 +35,16 @@ export class UsersController {
   @Auth()
   updateMe(@CurrentUser() user: AuthenticatedUser, @Body() body: UpdateMeDto) {
     return this.usersService.updateMe(user.id, body);
+  }
+
+  @Post()
+  @Auth(UserRole.ADMIN)
+  create(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Body() body: CreateUserDto,
+    @Req() request: Request,
+  ) {
+    return this.usersService.create(actor.id, body, this.auditContext(request));
   }
 
   @Get()

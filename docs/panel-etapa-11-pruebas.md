@@ -49,3 +49,22 @@ Abre la misma acción en dos sesiones autorizadas y guarda primero en una. La se
 - **Mi perfil.** Edita datos, registra el correo, solicita verificación y abre el enlace. Prueba recuperación desde el login y cierre de sesiones. Las rutas de correo del panel son `/verificar-correo` y `/restablecer-contrasena`.
 
 Registra cualquier fallo con el rol, ruta, acción, estado HTTP y un código de incidencia de prueba. El cierre de esta etapa requiere comprobar el recorrido en navegador con la API real.
+
+### Crear usuarios
+
+Como ADMIN, entra en **Usuarios → Crear usuario**. Completa nombres, DNI, teléfono y contraseña inicial. Elige Administrador, Supervisor, Operador o Ciudadano. Los apellidos son opcionales. La cuenta se crea activa y el evento aparece en Auditoría como «Usuario creado».
+
+En Postman, usa `POST /api/users` con Bearer ADMIN y un cuerpo como este. Usa un DNI y un teléfono disponibles.
+
+```json
+{
+  "firstName": "Operador",
+  "lastName": "Prueba",
+  "dni": "00000003",
+  "phone": "900000003",
+  "password": "contraseña-de-prueba",
+  "role": "OPERATOR"
+}
+```
+
+Espera 201. Un DNI o teléfono repetido devuelve 409. Una cuenta autenticada sin rol ADMIN recibe 403. Las cuentas de personal entran por el panel y las ciudadanas por la app móvil.
