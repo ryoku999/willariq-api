@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { MinioStorageService } from './minio-storage.service';
+import { RustfsStorageService } from './rustfs-storage.service';
 
-@Module({ providers: [MinioStorageService], exports: [MinioStorageService] })
+@Module({ providers: [RustfsStorageService], exports: [RustfsStorageService] })
 export class StorageModule {}

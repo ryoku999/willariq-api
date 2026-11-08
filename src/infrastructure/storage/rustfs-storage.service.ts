@@ -12,8 +12,8 @@ import { Agent as HttpAgent } from 'node:http';
 import { Agent as HttpsAgent } from 'node:https';
 
 @Injectable()
-export class MinioStorageService implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(MinioStorageService.name);
+export class RustfsStorageService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(RustfsStorageService.name);
   private readonly client?: Client;
   private readonly agent?: HttpAgent;
   readonly evidenceBucket?: string;
@@ -50,7 +50,7 @@ export class MinioStorageService implements OnModuleInit, OnModuleDestroy {
       }
     } catch {
       throw new Error(
-        'No se pudo verificar el bucket privado de evidencias; revisa MinIO y sus permisos',
+        'No se pudo verificar el bucket privado de evidencias; revisa RustFS y sus permisos',
       );
     }
   }
@@ -64,7 +64,7 @@ export class MinioStorageService implements OnModuleInit, OnModuleDestroy {
     } catch {
       this.logger.warn('Fallo de escritura en almacenamiento de evidencias');
       throw new ServiceUnavailableException(
-        'No se pudo guardar la imagen en MinIO',
+        'No se pudo guardar la imagen en RustFS',
       );
     }
   }
@@ -83,7 +83,7 @@ export class MinioStorageService implements OnModuleInit, OnModuleDestroy {
         );
       }
       throw new ServiceUnavailableException(
-        'No se pudo leer la imagen en MinIO',
+        'No se pudo leer la imagen en RustFS',
       );
     }
   }
@@ -94,7 +94,7 @@ export class MinioStorageService implements OnModuleInit, OnModuleDestroy {
       await client.removeObject(bucket, key);
     } catch {
       throw new ServiceUnavailableException(
-        'No se pudo eliminar el archivo en MinIO',
+        'No se pudo eliminar el archivo en RustFS',
       );
     }
   }

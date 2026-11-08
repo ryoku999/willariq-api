@@ -22,7 +22,7 @@ import {
   IncidentStatus,
   UserRole,
 } from '@/generated/prisma/enums';
-import { MinioStorageService } from '@/infrastructure/storage/minio-storage.service';
+import { RustfsStorageService } from '@/infrastructure/storage/rustfs-storage.service';
 import { AuthenticatedUser } from '@/shared/interfaces/authenticated-user.interface';
 import { AuditService } from '../audit/audit.service';
 import { IncidentAccessService } from '../incidents/incident-access.service';
@@ -46,7 +46,7 @@ export class EvidenceService {
   constructor(
     private readonly db: DatabaseService,
     private readonly access: IncidentAccessService,
-    private readonly storage: MinioStorageService,
+    private readonly storage: RustfsStorageService,
     private readonly cleanup: EvidenceCleanupService,
     private readonly audit: AuditService,
     config: ConfigService,
@@ -167,7 +167,7 @@ export class EvidenceService {
       },
     });
     try {
-      // Solo RAM -> MinIO. Ninguna escritura local ni transaccion SQL durante el upload.
+      // Solo RAM -> RustFS. Ninguna escritura local ni transaccion SQL durante el upload.
       await this.storage.put(bucket, objectKey, file.buffer, file.mimetype);
       const result = await this.db.$transaction(async (tx) => {
         await this.lockIncident(tx, id);

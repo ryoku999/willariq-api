@@ -12,7 +12,7 @@ import { randomUUID } from 'node:crypto';
 import { addAbortSignal } from 'node:stream';
 import { DatabaseService } from '@/database/database.service';
 import { Prisma } from '@/generated/prisma/client';
-import { MinioStorageService } from '@/infrastructure/storage/minio-storage.service';
+import { RustfsStorageService } from '@/infrastructure/storage/rustfs-storage.service';
 import { AuditService } from '../audit/audit.service';
 import { IncidentPaginationQueryDto } from '../incidents/dto/incident-pagination-query.dto';
 import { KNOWLEDGE_EVENT } from './knowledge-dispatcher.service';
@@ -68,7 +68,7 @@ export class KnowledgeService {
   constructor(
     private readonly db: DatabaseService,
     private readonly config: ConfigService,
-    private readonly storage: MinioStorageService,
+    private readonly storage: RustfsStorageService,
     private readonly audit: AuditService,
   ) {}
 

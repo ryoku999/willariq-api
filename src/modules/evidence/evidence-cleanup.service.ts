@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { DatabaseService } from '@/database/database.service';
 import { EvidenceUploadStatus } from '@/generated/prisma/enums';
-import { MinioStorageService } from '@/infrastructure/storage/minio-storage.service';
+import { RustfsStorageService } from '@/infrastructure/storage/rustfs-storage.service';
 import { EVIDENCE_OBJECT_PREFIX } from './evidence.constants';
 
 @Injectable()
@@ -12,7 +12,7 @@ export class EvidenceCleanupService {
 
   constructor(
     private readonly db: DatabaseService,
-    private readonly storage: MinioStorageService,
+    private readonly storage: RustfsStorageService,
   ) {}
 
   // El intent interno conserva el trabajo incluso si el proceso se interrumpe.
