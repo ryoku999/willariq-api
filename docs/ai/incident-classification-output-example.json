@@ -1,0 +1,20 @@
+{
+  "output": {
+    "improvedDescription": "Se reporta acumulación de basura frente al mercado municipal.",
+    "recommendedAction": "Solicitar una evaluación del punto reportado y coordinar la atención con el personal municipal competente.",
+    "type": "ENVIRONMENT",
+    "category": "GARBAGE_ACCUMULATION",
+    "urgency": "MEDIUM",
+    "sentiment": "NEUTRAL",
+    "keywords": ["basura", "mercado", "limpieza"],
+    "aiConfidence": 0.9,
+    "requiresSupervision": false,
+    "entities": [
+      {
+        "type": "LOCATION",
+        "value": "mercado municipal",
+        "confidence": 0.95
+      }
+    ]
+  }
+}

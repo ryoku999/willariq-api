@@ -1,3 +1,5 @@
+import { createUserAccount } from '../auth/utils/create-user-account';
+import { CreateUserDto } from './dto/create-user.dto';
 import { DatabaseService } from '@/database/database.service';
 import {
   ConflictException,
@@ -23,6 +25,24 @@ export class UsersService {
     private readonly db: DatabaseService,
     private readonly auditService: AuditService,
   ) {}
+
+  create(actorId: string, dto: CreateUserDto, context: RequestAuditContext) {
+    return this.db.$transaction(async (tx) => {
+      const user = await createUserAccount(tx, dto, dto.role);
+      await this.auditService.record(
+        {
+          userId: actorId,
+          action: 'USER_CREATED',
+          entityType: 'User',
+          entityId: user.id,
+          newValue: { role: user.role, status: user.status },
+          ...context,
+        },
+        tx,
+      );
+      return user;
+    });
+  }
 
   async findMe(userId: string) {
     return this.findById(userId);
@@ -171,9 +191,28 @@ export class UsersService {
     }
 
     return this.db.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
+      if (
+        dto.status !== UserStatus.ACTIVE &&
+        (await transaction.incidentAssignment.count({
+          where: {
+            operatorId: userId,
+            status: { in: ['ASSIGNED', 'ACCEPTED', 'IN_PROGRESS'] },
+          },
+        }))
+      ) {
+        throw new ConflictException(
+          'El usuario tiene asignaciones activas pendientes',
+        );
+      }
       const updated = await transaction.user.update({
         where: { id: userId },
-        data: { status: dto.status },
+        data: {
+          status: dto.status,
+          ...(dto.status !== UserStatus.ACTIVE
+            ? { sessionVersion: { increment: 1 } }
+            : {}),
+        },
         select: {
           id: true,
           firstName: true,
@@ -190,6 +229,9 @@ export class UsersService {
       });
 
       if (dto.status !== UserStatus.ACTIVE) {
+        await transaction.passwordResetToken.deleteMany({
+          where: { userId, usedAt: null },
+        });
         await transaction.refreshToken.deleteMany({ where: { userId } });
         await transaction.emailVerificationToken.updateMany({
           where: { userId, usedAt: null, revokedAt: null },
@@ -239,6 +281,20 @@ export class UsersService {
     }
 
     return this.db.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
+      if (
+        dto.role !== user.role &&
+        (await transaction.incidentAssignment.count({
+          where: {
+            operatorId: userId,
+            status: { in: ['ASSIGNED', 'ACCEPTED', 'IN_PROGRESS'] },
+          },
+        }))
+      ) {
+        throw new ConflictException(
+          'El usuario tiene asignaciones activas pendientes',
+        );
+      }
       const updated = await transaction.user.update({
         where: { id: userId },
         data: { role: dto.role },

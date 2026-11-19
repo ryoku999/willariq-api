@@ -273,6 +273,7 @@ model User {
   email           String?    @unique @db.VarChar(160)
   passwordHash    String     @db.VarChar(255)
   emailVerifiedAt DateTime?
+  sessionVersion  Int        @default(0)
   role            UserRole   @default(CITIZEN)
   status          UserStatus @default(ACTIVE)
   createdAt       DateTime   @default(now())
@@ -594,6 +595,7 @@ model IncidentAssignment {
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 
+  // Una asignacion activa por incidencia: indice parcial SQL en 20261105030000_active_incident_assignment.
   @@index([incidentId, assignedAt])
   @@index([areaId, status])
   @@index([operatorId, status])
@@ -647,13 +649,14 @@ model PromptVersion {
   responseSchema Json?
   promptHash     String?      @db.Char(64)
   schemaHash     String?      @db.Char(64)
-  active         Boolean      @default(true)
+  active         Boolean      @default(false)
   createdAt      DateTime     @default(now())
 
   jobs AiJob[]
 
   @@unique([name, version])
   @@index([capability, active])
+  // Un solo activo por capacidad: indice parcial administrado en la migracion SQL.
   @@map("prompt_versions")
 }
 
@@ -681,6 +684,11 @@ model AiJob {
 
   incidentId    String?      @db.Uuid
   incident      Incident?    @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  knowledgeDocumentId String? @db.Uuid
+  knowledgeDocument KnowledgeDocument? @relation(fields: [knowledgeDocumentId], references: [id], onDelete: Cascade)
+  knowledgeChunks KnowledgeChunk[]
+  knowledgePublications KnowledgePublication[]
+
   chatMessageId String?      @db.Uuid
   chatMessage   ChatMessage? @relation(fields: [chatMessageId], references: [id], onDelete: Cascade)
 
@@ -726,6 +734,7 @@ model AiJob {
 
   @@index([status, createdAt])
   @@index([incidentId, createdAt])
+  @@index([knowledgeDocumentId, createdAt])
   @@index([retryOfJobId])
   @@map("ai_jobs")
 }
@@ -802,6 +811,8 @@ model KnowledgeDocument {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  jobs         AiJob[]
+  publications KnowledgePublication[]
   chunks       KnowledgeChunk[]
   uploadIntent KnowledgeUploadIntent?
 
@@ -837,6 +848,10 @@ model KnowledgeChunk {
   tokenCount Int?
   metadata   Json?
 
+  embeddingJobId String? @db.Uuid
+  embeddingJob AiJob? @relation(fields: [embeddingJobId], references: [id], onDelete: Cascade)
+  embeddingDimensions Int?
+
   embeddingProvider AiProvider             @default(OPENROUTER)
   embeddingModel    String                 @db.VarChar(180)
   embedding         Unsupported("vector")?
@@ -847,10 +862,24 @@ model KnowledgeChunk {
 
   aiJobs AiJobKnowledgeChunk[]
 
-  @@unique([documentId, chunkIndex])
+  @@unique([embeddingJobId, chunkIndex])
   @@index([documentId])
   @@index([embeddingModel])
   @@map("knowledge_chunks")
+}
+
+model KnowledgePublication {
+  documentId String @db.Uuid
+  document KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  jobId String @db.Uuid
+  job AiJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  model String @db.VarChar(180)
+  dimensions Int
+  publishedAt DateTime @default(now())
+
+  @@id([documentId, model, dimensions])
+  @@index([model, dimensions])
+  @@map("knowledge_publications")
 }
 
 model AiJobKnowledgeChunk {
@@ -872,6 +901,7 @@ model Notification {
   userId    String             @db.Uuid
   user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   type      NotificationType
+  eventKey  String?            @db.VarChar(180)
   status    NotificationStatus @default(PENDING)
   title     String             @db.VarChar(180)
   body      String             @db.Text
@@ -881,6 +911,7 @@ model Notification {
   error     String?            @db.Text
   createdAt DateTime           @default(now())
 
+  @@unique([userId, eventKey])
   @@index([userId, status, createdAt])
   @@map("notifications")
 }
@@ -901,4 +932,18 @@ model AuditLog {
   @@index([entityType, entityId, createdAt])
   @@index([userId, createdAt])
   @@map("audit_logs")
+}
+
+model EmbeddingProfile {
+  id         String     @id @default(uuid(7)) @db.Uuid
+  provider   AiProvider @default(OPENROUTER)
+  model      String     @db.VarChar(180)
+  dimensions Int
+  timeoutMs  Int
+  batchSize  Int
+  active     Boolean    @default(false)
+  createdAt  DateTime   @default(now())
+
+  @@unique([provider, model, dimensions])
+  @@map("embedding_profiles")
 }

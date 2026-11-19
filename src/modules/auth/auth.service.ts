@@ -1,6 +1,8 @@
+import { createUserAccount } from './utils/create-user-account';
+import { lockAccount } from './utils/account-lock';
 import { DatabaseService } from '@/database/database.service';
 import {
-  ConflictException,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -11,7 +13,7 @@ import {
   RegisterResponse,
 } from './interfaces/auth.interface';
 import bcrypt from 'bcryptjs';
-import { Prisma, UserRole, UserStatus } from '@/generated/prisma/client';
+import { UserRole, UserStatus } from '@/generated/prisma/client';
 import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from '@/shared/interfaces/jwt-payload.interface';
 import { JwtService } from '@nestjs/jwt';
@@ -21,6 +23,25 @@ import {
   hashRefreshToken,
 } from './utils/auth.utils';
 import { ConfigService } from '@nestjs/config';
+
+type AuthChannel = 'web' | 'mobile';
+
+function assertChannelRole(role: UserRole, channel: AuthChannel) {
+  const allowed =
+    channel === 'mobile'
+      ? role === UserRole.CITIZEN
+      : role === UserRole.ADMIN ||
+        role === UserRole.SUPERVISOR ||
+        role === UserRole.OPERATOR;
+  if (allowed) return;
+  throw new ForbiddenException({
+    code: 'AUTH_CHANNEL_ROLE_FORBIDDEN',
+    message:
+      channel === 'web'
+        ? 'Esta cuenta es ciudadana. Inicia sesión en la app móvil.'
+        : 'Esta cuenta debe iniciar sesión en el panel administrativo.',
+  });
+}
 
 @Injectable()
 export class AuthService {
@@ -36,55 +57,11 @@ export class AuthService {
     );
   }
 
-  async register(dto: RegisterDto): Promise<RegisterResponse> {
-    const uniqueFilters = [{ dni: dto.dni }, { phone: dto.phone }];
-    const userFound = await this.db.user.findFirst({
-      where: { OR: uniqueFilters },
-      select: { id: true },
-    });
-
-    if (userFound) {
-      throw new ConflictException('Algunos datos ya estan en uso');
-    }
-
-    const passwordHash = await bcrypt.hash(dto.password, 12);
-
-    try {
-      return await this.db.user.create({
-        data: {
-          firstName: dto.firstName,
-          lastName: dto.lastName,
-          dni: dto.dni,
-          phone: dto.phone,
-          passwordHash,
-        },
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          phone: true,
-          dni: true,
-          email: true,
-          emailVerifiedAt: true,
-          role: true,
-          status: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      });
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        throw new ConflictException('Algunos datos ya estan en uso');
-      }
-
-      throw error;
-    }
+  register(dto: RegisterDto): Promise<RegisterResponse> {
+    return createUserAccount(this.db, dto, UserRole.CITIZEN);
   }
 
-  async login(dto: LoginDto): Promise<LoginResponseI> {
+  async login(dto: LoginDto, channel: AuthChannel): Promise<LoginResponseI> {
     const userFound = await this.db.user.findUnique({
       where: { dni: dto.dni },
     });
@@ -106,43 +83,52 @@ export class AuthService {
       throw new UnauthorizedException('La cuenta no esta activa');
     }
 
-    const tokens = await this.createTokensResponse(
-      userFound.id,
-      userFound.role,
-    );
-
-    const refreshExpiresAt = new Date(Date.now() + this.refreshExpiresInMs);
-
-    await this.db.refreshToken.create({
-      data: {
-        userId: userFound.id,
-        tokenHash: hashRefreshToken(tokens.refreshToken),
-        expiresAt: refreshExpiresAt,
-      },
+    return this.db.$transaction(async (tx) => {
+      const user = await lockAccount(tx, userFound.id);
+      if (
+        !user ||
+        user.status !== UserStatus.ACTIVE ||
+        user.passwordHash !== userFound.passwordHash
+      ) {
+        throw new UnauthorizedException('Credenciales incorrectas');
+      }
+      assertChannelRole(user.role, channel);
+      const tokens = await this.createTokensResponse(
+        user.id,
+        user.role,
+        user.sessionVersion,
+      );
+      await tx.refreshToken.create({
+        data: {
+          userId: user.id,
+          tokenHash: hashRefreshToken(tokens.refreshToken),
+          expiresAt: new Date(Date.now() + this.refreshExpiresInMs),
+        },
+      });
+      return {
+        tokens,
+        user: {
+          dni: user.dni,
+          email: user.email,
+          emailVerifiedAt: user.emailVerifiedAt,
+          firstName: user.firstName,
+          id: user.id,
+          lastName: user.lastName,
+          phone: user.phone,
+          role: user.role,
+          status: user.status,
+        },
+      };
     });
-
-    return {
-      tokens,
-      user: {
-        dni: userFound.dni,
-        email: userFound.email,
-        emailVerifiedAt: userFound.emailVerifiedAt,
-        firstName: userFound.firstName,
-        id: userFound.id,
-        lastName: userFound.lastName,
-        phone: userFound.phone,
-        role: userFound.role,
-        status: userFound.status,
-      },
-    };
   }
 
   private async createTokensResponse(
     userId: string,
     role: UserRole,
+    sessionVersion: number,
     refreshToken = generateRefreshToken(),
   ): Promise<AuthTokens> {
-    const payload: JwtPayload = { sub: userId, role };
+    const payload: JwtPayload = { sub: userId, role, sessionVersion };
     const accessToken = await this.jwtService.signAsync(payload);
 
     return {
@@ -160,53 +146,44 @@ export class AuthService {
     });
   }
 
-  async refresh(rawRefreshToken: string): Promise<AuthTokens> {
+  async refresh(
+    rawRefreshToken: string,
+    channel: AuthChannel,
+  ): Promise<AuthTokens> {
     const storedToken = await this.db.refreshToken.findUnique({
       where: { tokenHash: hashRefreshToken(rawRefreshToken) },
-      include: { user: true },
+      select: { id: true, userId: true },
     });
-
-    if (!storedToken) {
+    if (!storedToken)
       throw new UnauthorizedException('El refresh token no es valido');
-    }
 
-    if (storedToken.expiresAt <= new Date()) {
-      await this.db.refreshToken.deleteMany({
-        where: { id: storedToken.id },
-      });
-
-      throw new UnauthorizedException('El refresh token ha expirado');
-    }
-
-    if (storedToken.user.status !== UserStatus.ACTIVE) {
-      throw new UnauthorizedException('La cuenta no esta activa');
-    }
-
-    const nextRefreshToken = generateRefreshToken();
-    const refreshExpiresAt = new Date(Date.now() + this.refreshExpiresInMs);
-
-    await this.db.$transaction(async (transaction) => {
-      const deleted = await transaction.refreshToken.deleteMany({
-        where: { id: storedToken.id },
-      });
-
-      if (deleted.count !== 1) {
-        throw new UnauthorizedException('El refresh token no es valido');
+    return this.db.$transaction(async (tx) => {
+      const user = await lockAccount(tx, storedToken.userId);
+      if (!user || user.status !== UserStatus.ACTIVE) {
+        throw new UnauthorizedException('La cuenta no esta activa');
       }
+      const deleted = await tx.refreshToken.deleteMany({
+        where: { id: storedToken.id, expiresAt: { gt: new Date() } },
+      });
+      if (deleted.count !== 1)
+        throw new UnauthorizedException(
+          'El refresh token no es valido o ha expirado',
+        );
 
-      await transaction.refreshToken.create({
+      assertChannelRole(user.role, channel);
+      const tokens = await this.createTokensResponse(
+        user.id,
+        user.role,
+        user.sessionVersion,
+      );
+      await tx.refreshToken.create({
         data: {
-          userId: storedToken.userId,
-          tokenHash: hashRefreshToken(nextRefreshToken),
-          expiresAt: refreshExpiresAt,
+          userId: user.id,
+          tokenHash: hashRefreshToken(tokens.refreshToken),
+          expiresAt: new Date(Date.now() + this.refreshExpiresInMs),
         },
       });
+      return tokens;
     });
-
-    return this.createTokensResponse(
-      storedToken.userId,
-      storedToken.user.role,
-      nextRefreshToken,
-    );
   }
 }

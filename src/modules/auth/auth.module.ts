@@ -27,6 +27,7 @@ type JwtExpiresIn = NonNullable<JwtModuleOptions['signOptions']>['expiresIn'];
       }),
     }),
   ],
+  exports: [AuthCookieService],
   controllers: [AuthController],
   providers: [
     AuthService,
