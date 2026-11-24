@@ -1,3 +1,4 @@
+import { IncidentEventsGateway } from '../incidents/incident-events.gateway';
 import { writeNotification } from '../notifications/write-notification';
 import {
   ConflictException,
@@ -49,6 +50,7 @@ export class IncidentAiService {
     private readonly audit: AuditService,
     private readonly providers: AiProvidersService,
     private readonly schemas: AiSchemaService,
+    private readonly events: IncidentEventsGateway,
   ) {}
 
   async submit(
@@ -58,7 +60,7 @@ export class IncidentAiService {
     context: IncidentAuditContext,
     retry = false,
   ) {
-    return this.db.$transaction(
+    const result = await this.db.$transaction(
       async (tx) => {
         await tx.$queryRaw`SELECT id FROM incidents WHERE id = ${id}::uuid FOR UPDATE`;
         await this.access.assertReadable(tx, actor, id);
@@ -70,35 +72,23 @@ export class IncidentAiService {
           throw new ForbiddenException(
             'Solo el ciudadano propietario puede enviar',
           );
-        if (retry && actor.role === UserRole.OPERATOR) {
-          const allowed = await tx.incident.count({
-            where: {
-              id,
-              assignments: {
-                some: {
-                  replacedBy: { is: null },
-                  status: { notIn: ['CANCELLED', 'REASSIGNED'] },
-                  area: {
-                    status: 'ACTIVE',
-                    members: {
-                      some: { userId: actor.id, role: 'MANAGER', active: true },
-                    },
-                  },
-                },
-              },
-            },
-          });
-          if (!allowed)
-            throw new ForbiddenException(
-              'Se requiere un encargado del area asignada',
-            );
-        }
+        if (
+          retry &&
+          actor.role === UserRole.OPERATOR &&
+          incident.responsibleId &&
+          incident.responsibleId !== actor.id
+        )
+          throw new ForbiddenException(
+            'La incidencia está a cargo de otro operador',
+          );
         if (incident.version !== expectedVersion)
           throw new ConflictException(
             'Version desactualizada; consulta nuevamente la incidencia',
           );
         if (
-          incident.status !== (retry ? 'IN_REVIEW' : 'RECEIVED') ||
+          (retry
+            ? !['NEW', 'ACCEPTED', 'IN_PROGRESS'].includes(incident.status)
+            : incident.status !== 'RECEIVED') ||
           incident.classificationSource === 'HUMAN' ||
           incident.reviewedAt
         )
@@ -137,8 +127,8 @@ export class IncidentAiService {
           throw new ConflictException(
             'Solo se reintenta la ultima clasificacion fallida; no se reemplazan decisiones validas',
           );
-        const enabled = this.config.get<boolean>('AI_ENABLED') === true;
-        const status = enabled ? 'AI_ANALYSIS' : 'IN_REVIEW';
+        let enabled = this.config.get<boolean>('AI_ENABLED') === true;
+        const status = retry ? incident.status : 'NEW';
         let jobId: string | null = null;
         if (enabled) {
           await lockAiCapability(tx, AiCapability.INCIDENT_CLASSIFICATION);
@@ -160,52 +150,56 @@ export class IncidentAiService {
             prompts.length !== 1 ||
             !routes.length ||
             routes.some((route) => !this.providers.isConfigured(route.provider))
-          )
-            throw new ConflictException(
-              'Configura un prompt activo, rutas habilitadas y credenciales antes de enviar',
+          ) {
+            if (retry)
+              throw new ConflictException(
+                'Configura un prompt activo, rutas y credenciales',
+              );
+            enabled = false;
+          } else {
+            const prompt = prompts[0];
+            const responseSchema = this.schemas.prepare(
+              AiCapability.INCIDENT_CLASSIFICATION,
+              prompt.responseSchema,
             );
-          const prompt = prompts[0];
-          const responseSchema = this.schemas.prepare(
-            AiCapability.INCIDENT_CLASSIFICATION,
-            prompt.responseSchema,
-          );
-          const input = {
-            systemPrompt: prompt.systemPrompt,
-            responseSchema,
-            incident: {
-              originalMessage: incident.originalMessage,
-              address: incident.address,
-              addressReference: incident.addressReference,
-            },
-          };
-          jobId = randomUUID();
-          await tx.aiJob.create({
-            data: {
-              id: jobId,
-              type: 'INCIDENT_ANALYSIS',
-              trigger: retry ? 'RETRY' : 'AUTOMATIC',
-              incidentId: id,
-              requestedById: actor.id,
-              retryOfJobId: previous?.id,
-              bullJobId: jobId,
-              promptVersionId: prompt.id,
-              promptHash: sha256(prompt.systemPrompt),
-              responseSchemaHash: sha256(canonicalJson(responseSchema)),
-              inputFingerprint: sha256(canonicalJson(input.incident)),
-              inputPayload: input,
-              routeSnapshot: routes,
-              incidentVersion: incident.version + 1,
-              maxRounds: this.config.getOrThrow<number>('AI_JOB_MAX_ROUNDS'),
-            },
-          });
-          await tx.queueOutbox.create({
-            data: {
-              eventType: CLASSIFICATION_EVENT,
-              aggregateType: 'AiJob',
-              aggregateId: jobId,
-              payload: { jobId },
-            },
-          });
+            const input = {
+              systemPrompt: prompt.systemPrompt,
+              responseSchema,
+              incident: {
+                originalMessage: incident.originalMessage,
+                address: incident.address,
+                addressReference: incident.addressReference,
+              },
+            };
+            jobId = randomUUID();
+            await tx.aiJob.create({
+              data: {
+                id: jobId,
+                type: 'INCIDENT_ANALYSIS',
+                trigger: retry ? 'RETRY' : 'AUTOMATIC',
+                incidentId: id,
+                requestedById: actor.id,
+                retryOfJobId: previous?.id,
+                bullJobId: jobId,
+                promptVersionId: prompt.id,
+                promptHash: sha256(prompt.systemPrompt),
+                responseSchemaHash: sha256(canonicalJson(responseSchema)),
+                inputFingerprint: sha256(canonicalJson(input.incident)),
+                inputPayload: input,
+                routeSnapshot: routes,
+                incidentVersion: incident.version + 1,
+                maxRounds: this.config.getOrThrow<number>('AI_JOB_MAX_ROUNDS'),
+              },
+            });
+            await tx.queueOutbox.create({
+              data: {
+                eventType: CLASSIFICATION_EVENT,
+                aggregateType: 'AiJob',
+                aggregateId: jobId,
+                payload: { jobId },
+              },
+            });
+          }
         }
         await tx.incident.update({
           where: { id },
@@ -229,7 +223,7 @@ export class IncidentAiService {
             newStatus: status,
             comment: enabled
               ? 'Enviada a clasificacion IA'
-              : 'IA deshabilitada: revision manual',
+              : 'Incidencia enviada para atención manual',
             metadata: { jobId, retry },
           },
         });
@@ -244,13 +238,13 @@ export class IncidentAiService {
           },
           tx,
         );
-        if (!enabled)
+        if (!retry)
           await writeNotification(tx, {
             eventKey: `incident:${id}:v${incident.version + 1}`,
             userId: incident.reporterId,
             type: 'INCIDENT_STATUS_CHANGED',
-            title: 'Incidencia en revision',
-            body: 'Tu incidencia fue enviada a revision manual.',
+            title: 'Incidencia recibida',
+            body: 'Tu reporte ya está en la bandeja de Serenazgo.',
             data: { incidentId: id, version: incident.version + 1 },
           });
         return {
@@ -264,6 +258,8 @@ export class IncidentAiService {
       },
       { timeout: 10000 },
     );
+    this.events.publish(id, result.version, !retry);
+    return result;
   }
 
   async list(

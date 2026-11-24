@@ -40,7 +40,7 @@ export class IncidentAiController {
   }
 
   @Post('incidents/:id/ai/retry')
-  @Auth(UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.OPERATOR)
+  @Auth(UserRole.ADMIN, UserRole.OPERATOR)
   @HttpCode(202)
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   retry(
@@ -69,13 +69,13 @@ export class IncidentAiController {
   }
 
   @Get('admin/ai/jobs')
-  @Auth(UserRole.ADMIN, UserRole.SUPERVISOR)
+  @Auth(UserRole.ADMIN)
   listAdminJobs(@Query() query: IncidentPaginationQueryDto) {
     return this.service.listAdminJobs(query);
   }
 
   @Get('admin/ai/jobs/:id')
-  @Auth(UserRole.ADMIN, UserRole.SUPERVISOR)
+  @Auth(UserRole.ADMIN)
   detail(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.detail(id);
   }

@@ -85,6 +85,7 @@ export class EmbeddingProviderService {
   ) {
     const key = this.config.get<string>('OPENROUTER_API_KEY');
     if (!key) throw new EmbeddingFailure('PROVIDER_KEY_MISSING');
+    const openAiV3 = profile.model.startsWith('openai/text-embedding-3-');
     const signal = AbortSignal.timeout(profile.timeoutMs);
     const started = Date.now();
     const context = {
@@ -108,8 +109,11 @@ export class EmbeddingProviderService {
           body: JSON.stringify({
             model: profile.model,
             input,
-            input_type: inputType,
             encoding_format: 'float',
+            // OpenAI embeddings use the same input format for documents and queries.
+            ...(openAiV3
+              ? { dimensions: profile.dimensions }
+              : { input_type: inputType }),
           }),
         },
       );
@@ -163,11 +167,15 @@ export class EmbeddingProviderService {
         /^private\/openrouter\//,
         '',
       );
+      const acceptedModels = [
+        profile.model,
+        profile.model.replace(/:free$/, ''),
+      ];
+      // Some OpenRouter endpoints return the upstream OpenAI model ID.
+      if (openAiV3) acceptedModels.push(profile.model.slice('openai/'.length));
       if (
         returned.data.length !== input.length ||
-        ![profile.model, profile.model.replace(/:free$/, '')].includes(
-          returnedModel,
-        )
+        !acceptedModels.includes(returnedModel)
       ) {
         this.logger.warn(
           JSON.stringify({

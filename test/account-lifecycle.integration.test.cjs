@@ -18,6 +18,9 @@ test('Account lifecycle validates new credentials and protects authenticated rou
   const { ValidationPipe } = require('@nestjs/common');
   const { AccountController } = load('modules/account/account.controller');
   const { UsersController } = load('modules/users/users.controller');
+  const { AuthController } = load('modules/auth/auth.controller');
+  const { RegisterDto } = load('modules/auth/dto/register.dto');
+  const { CreateUserDto } = load('modules/users/dto/create-user.dto');
   assert.deepEqual(
     Reflect.getMetadata('roles', UsersController.prototype.create),
     ['ADMIN'],
@@ -43,6 +46,27 @@ test('Account lifecycle validates new credentials and protects authenticated rou
     whitelist: true,
     forbidNonWhitelisted: true,
   });
+  const mobileRegister = AuthController.prototype.mobileRegister;
+  assert.equal(Reflect.getMetadata('path', mobileRegister), 'mobile/register');
+  const [mobileDto] = Reflect.getMetadata(
+    'design:paramtypes',
+    AuthController.prototype,
+    'mobileRegister',
+  );
+  const credentials = { dni: '00000005', password: 'passphrase-test' };
+  await pipe.transform(credentials, { type: 'body', metatype: mobileDto });
+  for (const [input, metatype] of [
+    [{ ...credentials, role: 'ADMIN' }, mobileDto],
+    [credentials, RegisterDto],
+    [{ ...credentials, role: 'OPERATOR' }, CreateUserDto],
+  ]) {
+    await assert.rejects(
+      () => pipe.transform(input, { type: 'body', metatype }),
+      {
+        status: 400,
+      },
+    );
+  }
   const email = await pipe.transform(
     { email: '  TEST@EXAMPLE.COM  ', currentPassword: 'test-pass' },
     { type: 'body', metatype: SetAccountEmailDto },
@@ -92,6 +116,7 @@ test(
       for (const folder of [
         '20260916021124_init',
         '20261105050000_account_session_version',
+        '20261124180000_citizen_minimal_registration',
       ]) {
         await pool.query(
           await readFile(
@@ -156,6 +181,65 @@ test(
       });
       const { UsersService } = load('modules/users/users.service');
       const users = new UsersService(db, new AuditService(db));
+      const mobileCredentials = {
+        dni: '00000005',
+        password: 'passphrase-test',
+      };
+      await assert.rejects(
+        () =>
+          auth.registerMobileCitizen({
+            ...mobileCredentials,
+            password: mobileCredentials.dni,
+          }),
+        { status: 400 },
+      );
+      const [createdCitizen, duplicate] = await Promise.allSettled([
+        auth.registerMobileCitizen(mobileCredentials),
+        auth.registerMobileCitizen(mobileCredentials),
+      ]).then((results) =>
+        results.sort((a, b) => a.status.localeCompare(b.status)),
+      );
+      assert.equal(createdCitizen.status, 'fulfilled');
+      assert.equal(duplicate.status, 'rejected');
+      assert.equal(duplicate.reason.status, 409);
+      const { user: citizen, tokens } = createdCitizen.value;
+      assert.equal(citizen.role, 'CITIZEN');
+      assert.equal(citizen.firstName, null);
+      assert.equal(citizen.phone, null);
+      assert.equal(Object.hasOwn(citizen, 'passwordHash'), false);
+      assert.equal(jwt.verify(tokens.accessToken).sub, citizen.id);
+      assert.equal(
+        await db.refreshToken.count({ where: { userId: citizen.id } }),
+        1,
+      );
+      assert.equal(
+        (
+          await auth.registerMobileCitizen({
+            ...mobileCredentials,
+            dni: '00000006',
+          })
+        ).user.phone,
+        null,
+      );
+      await assert.rejects(() => auth.login(mobileCredentials, 'web'), {
+        status: 403,
+      });
+      await assert.rejects(
+        () => users.updateRole(admin.id, citizen.id, { role: 'OPERATOR' }, {}),
+        { status: 409 },
+      );
+      const named = await users.updateMe(citizen.id, {
+        firstName: 'Ciudadana',
+      });
+      assert.equal(named.firstName, 'Ciudadana');
+      assert.equal(named.phone, null);
+      const contact = await users.updateMe(citizen.id, { phone: '900000005' });
+      assert.equal(contact.firstName, 'Ciudadana');
+      assert.equal(contact.phone, '900000005');
+      assert.equal(
+        (await auth.login(mobileCredentials, 'mobile')).user.id,
+        citizen.id,
+      );
       const input = {
         firstName: 'Personal',
         dni: '00000003',

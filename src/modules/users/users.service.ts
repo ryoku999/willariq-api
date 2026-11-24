@@ -1,4 +1,5 @@
 import { createUserAccount } from '../auth/utils/create-user-account';
+import { lockAccount } from '../auth/utils/account-lock';
 import { CreateUserDto } from './dto/create-user.dto';
 import { DatabaseService } from '@/database/database.service';
 import {
@@ -83,7 +84,7 @@ export class UsersService {
             : { firstName: dto.firstName.trim() }),
           ...(dto.lastName === undefined
             ? {}
-            : { lastName: dto.lastName.trim() }),
+            : { lastName: dto.lastName?.trim() ?? null }),
           ...(dto.phone === undefined ? {} : { phone: dto.phone }),
         },
         select: {
@@ -194,15 +195,15 @@ export class UsersService {
       await transaction.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
       if (
         dto.status !== UserStatus.ACTIVE &&
-        (await transaction.incidentAssignment.count({
+        (await transaction.incident.count({
           where: {
-            operatorId: userId,
-            status: { in: ['ASSIGNED', 'ACCEPTED', 'IN_PROGRESS'] },
+            responsibleId: userId,
+            status: { in: ['ACCEPTED', 'IN_PROGRESS'] },
           },
         }))
       ) {
         throw new ConflictException(
-          'El usuario tiene asignaciones activas pendientes',
+          'El usuario tiene incidencias activas a su cargo',
         );
       }
       const updated = await transaction.user.update({
@@ -281,18 +282,27 @@ export class UsersService {
     }
 
     return this.db.$transaction(async (transaction) => {
-      await transaction.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
+      const current = await lockAccount(transaction, userId);
+      if (!current) throw new NotFoundException('Usuario no encontrado');
       if (
-        dto.role !== user.role &&
-        (await transaction.incidentAssignment.count({
+        dto.role !== UserRole.CITIZEN &&
+        (!current.firstName?.trim() || !current.phone?.trim())
+      ) {
+        throw new ConflictException(
+          'Completa el nombre y teléfono del usuario antes de asignarle un rol de personal',
+        );
+      }
+      if (
+        dto.role !== current.role &&
+        (await transaction.incident.count({
           where: {
-            operatorId: userId,
-            status: { in: ['ASSIGNED', 'ACCEPTED', 'IN_PROGRESS'] },
+            responsibleId: userId,
+            status: { in: ['ACCEPTED', 'IN_PROGRESS'] },
           },
         }))
       ) {
         throw new ConflictException(
-          'El usuario tiene asignaciones activas pendientes',
+          'El usuario tiene incidencias activas a su cargo',
         );
       }
       const updated = await transaction.user.update({
@@ -319,7 +329,7 @@ export class UsersService {
           action: 'USER_ROLE_CHANGED',
           entityType: 'User',
           entityId: userId,
-          oldValue: { role: user.role },
+          oldValue: { role: current.role },
           newValue: { role: dto.role },
           ...context,
         },

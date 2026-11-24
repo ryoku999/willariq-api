@@ -1,3 +1,4 @@
+import { IncidentEventsGateway } from '../../incidents/incident-events.gateway';
 import { writeNotification } from '../../notifications/write-notification';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -38,6 +39,7 @@ export class ClassificationProcessor implements OnModuleInit {
     private readonly provider: ClassificationProviderService,
     private readonly schemas: AiSchemaService,
     private readonly audit: AuditService,
+    private readonly events: IncidentEventsGateway,
   ) {}
 
   onModuleInit() {
@@ -336,7 +338,7 @@ export class ClassificationProcessor implements OnModuleInit {
   ) {
     if (!job.incidentId) return;
     const id = job.incidentId;
-    await this.db.$transaction(
+    const version = await this.db.$transaction(
       async (tx) => {
         // Always lock incident before job, matching submission's lock order.
         await tx.$queryRaw`SELECT id FROM incidents WHERE id = ${id}::uuid FOR UPDATE`;
@@ -361,8 +363,7 @@ export class ClassificationProcessor implements OnModuleInit {
         const incident = await tx.incident.findUnique({ where: { id } });
         if (
           !incident ||
-          incident.status !== 'AI_ANALYSIS' ||
-          incident.version !== job.incidentVersion ||
+          !['NEW', 'ACCEPTED', 'IN_PROGRESS'].includes(incident.status) ||
           incident.classificationSource === 'HUMAN' ||
           incident.reviewedAt
         ) {
@@ -383,7 +384,6 @@ export class ClassificationProcessor implements OnModuleInit {
             data: {
               ...classification,
               classificationSource: 'AI',
-              status: 'IN_REVIEW',
               version: { increment: 1 },
             },
           });
@@ -409,7 +409,6 @@ export class ClassificationProcessor implements OnModuleInit {
           await tx.incident.update({
             where: { id },
             data: {
-              status: 'IN_REVIEW',
               classificationSource: 'MANUAL_WITHOUT_AI',
               requiresSupervision: true,
               version: { increment: 1 },
@@ -420,8 +419,8 @@ export class ClassificationProcessor implements OnModuleInit {
           data: {
             incidentId: id,
             actorType: output ? 'AI' : 'SYSTEM',
-            previousStatus: 'AI_ANALYSIS',
-            newStatus: 'IN_REVIEW',
+            previousStatus: incident.status,
+            newStatus: incident.status,
             comment: output
               ? 'Clasificacion IA completada; requiere revision humana'
               : 'No se completo la clasificacion IA; requiere revision manual',
@@ -446,14 +445,16 @@ export class ClassificationProcessor implements OnModuleInit {
           eventKey: `incident:${id}:v${incident.version + 1}`,
           userId: incident.reporterId,
           type: output ? 'INCIDENT_STATUS_CHANGED' : 'AI_REVIEW_REQUIRED',
-          title: 'Incidencia en revision',
+          title: 'Clasificación del reporte actualizada',
           body: output
-            ? 'Tu incidencia fue analizada y esta pendiente de revision humana.'
-            : 'Tu incidencia fue recibida y sera revisada manualmente.',
+            ? 'Tu incidencia ya tiene una clasificación inicial.'
+            : 'Tu incidencia se atenderá con clasificación manual.',
           data: { incidentId: id, jobId: job.id },
         });
+        return incident.version + 1;
       },
       { timeout: 10000 },
     );
+    if (version !== undefined) this.events.publish(id, version);
   }
 }

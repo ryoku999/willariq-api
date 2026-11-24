@@ -24,6 +24,7 @@ import {
   TRACKING_PATTERN,
   UNAVAILABLE_TRACKING,
   chatEnabled,
+  localizeTrackingHistory,
   trackingMetadata,
 } from './chat.types';
 
@@ -177,15 +178,29 @@ export class ChatService {
     return {
       items: items.map((message, index) => {
         const info = metadata[index];
-        if (!info?.success) return message;
-        return {
-          ...message,
-          content:
-            info.data.incidentId && !allowed.has(info.data.incidentId)
-              ? UNAVAILABLE_TRACKING
-              : message.content,
-          metadata: { kind: 'TRACKING' },
-        };
+        if (info?.success) {
+          return {
+            ...message,
+            content:
+              info.data.incidentId && !allowed.has(info.data.incidentId)
+                ? UNAVAILABLE_TRACKING
+                : localizeTrackingHistory(message.content),
+            metadata: { kind: 'TRACKING' },
+          };
+        }
+        if (actor.role === 'CITIZEN' && message.role === 'ASSISTANT') {
+          const details = message.metadata;
+          const municipal =
+            details &&
+            typeof details === 'object' &&
+            !Array.isArray(details) &&
+            details.kind === 'MUNICIPAL';
+          return {
+            ...message,
+            metadata: municipal ? { kind: 'MUNICIPAL' } : null,
+          };
+        }
+        return message;
       }),
       pagination: pagination(query, total),
     };

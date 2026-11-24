@@ -1,3 +1,4 @@
+import type { IncidentStatus } from '@/generated/prisma/enums';
 import type { ConfigService } from '@nestjs/config';
 import z from 'zod';
 
@@ -6,6 +7,34 @@ export const ACTIVE_CHAT_JOBS = ['PENDING', 'QUEUED', 'PROCESSING'] as const;
 export const TRACKING_PATTERN = /^[A-Z0-9]{1,10}-\d{4}-\d{6,10}$/;
 export const UNAVAILABLE_TRACKING =
   'No encontré una incidencia disponible para consultar con ese código.';
+
+const incidentStatusLabels: Record<IncidentStatus, string> = {
+  RECEIVED: 'Recibida',
+  AI_ANALYSIS: 'En análisis',
+  NEW: 'En revisión',
+  ACCEPTED: 'Aceptada',
+  ASSIGNED: 'Asignada',
+  IN_PROGRESS: 'En atención',
+  RESOLVED: 'Resuelta',
+  REJECTED: 'Rechazada',
+  CLOSED: 'Cerrada',
+  CANCELLED: 'Cancelada',
+};
+
+export function trackingReply(code: string, status: IncidentStatus) {
+  return `La incidencia ${code} tiene el estado «${incidentStatusLabels[status]}».`;
+}
+
+export function localizeTrackingHistory(content: string) {
+  const previousReply = /^La incidencia (\S+) tiene el estado ([A-Z_]+)\.$/;
+  return content.replace(
+    previousReply,
+    (original, code: string, status: string) =>
+      TRACKING_PATTERN.test(code) && Object.hasOwn(incidentStatusLabels, status)
+        ? trackingReply(code, status as IncidentStatus)
+        : original,
+  );
+}
 
 export function chatEnabled(config: ConfigService) {
   return (

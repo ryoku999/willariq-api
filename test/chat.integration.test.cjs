@@ -203,11 +203,12 @@ test(
         ),
       );
       const [citizen, other] = users;
-      const code = 'WQ-2026-000001';
+      const code = 'WIL-2026-000001';
       await db.incident.create({
         data: {
           trackingCode: code,
           reporterId: other.id,
+          status: 'ACCEPTED',
           clientRequestId: randomUUID(),
           originalMessage: 'Detalle interno',
           latitude: -12,
@@ -266,10 +267,15 @@ test(
       });
       const ownScope = await send(trackingInput.content);
       await run(ownScope.job);
-      assert.match(
-        (await latest({ ...citizen, role: 'SUPERVISOR' })).content,
-        new RegExp(code),
-      );
+      const supervisor = { ...citizen, role: 'SUPERVISOR' };
+      const trackingReply = await latest(supervisor);
+      const expectedReply = `La incidencia ${code} tiene el estado «Aceptada».`;
+      assert.equal(trackingReply.content, expectedReply);
+      await db.chatMessage.update({
+        where: { id: trackingReply.id },
+        data: { content: `La incidencia ${code} tiene el estado ACCEPTED.` },
+      });
+      assert.equal((await latest(supervisor)).content, expectedReply);
       await db.user.update({
         where: { id: citizen.id },
         data: { role: 'CITIZEN' },
@@ -333,7 +339,14 @@ test(
       assert.equal(completed.status, 'COMPLETED');
       const answer = await latest();
       assert.equal(completed.finalOutput.messageId, answer.id);
-      assert.deepEqual(answer.metadata.sources, [
+      assert.deepEqual(answer.metadata, { kind: 'MUNICIPAL' });
+      const staff = await db.user.update({
+        where: { id: citizen.id },
+        data: { role: 'ADMIN' },
+      });
+      const staffAnswer = await latest(staff);
+      assert.equal(staffAnswer.content, answer.content);
+      assert.deepEqual(staffAnswer.metadata.sources, [
         {
           ref: 1,
           chunkId: chunk,
@@ -343,6 +356,10 @@ test(
           chunkIndex: 0,
         },
       ]);
+      await db.user.update({
+        where: { id: citizen.id },
+        data: { role: 'CITIZEN' },
+      });
       assert.equal(
         await db.aiJobKnowledgeChunk.count({
           where: { jobId: question.job.id, chunkId: chunk },
@@ -359,7 +376,7 @@ test(
       const low = await send('Consulta ajena al corpus');
       await run(low.job);
       assert.equal(calls.at(-1).path, '/api/v1/embeddings');
-      assert.deepEqual((await latest()).metadata.sources, []);
+      assert.deepEqual((await latest()).metadata, { kind: 'MUNICIPAL' });
 
       mode = 'invalid-citation';
       const invalid = await send('Respuesta con cita inventada');

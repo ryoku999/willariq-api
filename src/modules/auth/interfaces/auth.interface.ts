@@ -7,10 +7,10 @@ export interface AuthTokens {
 
 export interface AuthUserResponse {
   id: string;
-  firstName: string;
+  firstName: string | null;
   lastName: string | null;
   dni: string;
-  phone: string;
+  phone: string | null;
   email: string | null;
   emailVerifiedAt: Date | null;
   role: UserRole;
@@ -22,23 +22,11 @@ export interface LoginResponseI {
   user: AuthUserResponse;
 }
 
-export interface WebLoginRes {
-  dni: string;
-  email: string | null;
-  emailVerifiedAt: Date | null;
-  firstName: string;
-  id: string;
-  lastName: string | null;
-  phone: string;
-  role: string;
-  status: string;
-}
-
 export interface RegisterResponse {
   id: string;
-  firstName: string;
+  firstName: string | null;
   lastName: string | null;
-  phone: string;
+  phone: string | null;
   dni: string;
   email: string | null;
   emailVerifiedAt: Date | null;

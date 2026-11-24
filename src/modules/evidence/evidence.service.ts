@@ -72,19 +72,10 @@ export class EvidenceService {
           'Solo puedes modificar evidencias en RECEIVED',
         );
     } else {
-      const assignment = await client.incidentAssignment.findFirst({
-        where: {
-          incidentId: id,
-          operatorId: actor.id,
-          status: 'IN_PROGRESS',
-          replacedBy: { is: null },
-          area: {
-            status: 'ACTIVE',
-            members: { some: { userId: actor.id, active: true } },
-          },
-        },
-      });
-      if (incident.status !== IncidentStatus.IN_PROGRESS || !assignment)
+      if (
+        incident.status !== IncidentStatus.IN_PROGRESS ||
+        incident.responsibleId !== actor.id
+      )
         throw new ForbiddenException(
           'Solo el responsable activo puede adjuntar evidencias durante la atencion',
         );

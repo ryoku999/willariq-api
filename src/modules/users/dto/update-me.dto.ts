@@ -4,10 +4,11 @@ import {
   IsString,
   Matches,
   MaxLength,
+  ValidateIf,
 } from 'class-validator';
 
 export class UpdateMeDto {
-  @IsOptional()
+  @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsString()
   @IsNotEmpty()
   @MaxLength(80)
@@ -17,9 +18,9 @@ export class UpdateMeDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(120)
-  lastName?: string;
+  lastName?: string | null;
 
-  @IsOptional()
+  @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsString()
   @IsNotEmpty()
   @Matches(/^\d{9}$/)
