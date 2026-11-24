@@ -49,6 +49,60 @@ test('Markdown decoding, section-aware splitting and ADMIN route guards', () => 
   assert.ok(fragments[1].content.includes('# Ejemplo'));
 });
 
+test('OpenRouter uses the configured dimensions for OpenAI embeddings', async (t) => {
+  const { ConfigService } = require('@nestjs/config');
+  const { EmbeddingProviderService } = load(
+    'modules/knowledge/embedding-provider.service',
+  );
+  const profile = {
+    model: 'openai/text-embedding-3-small',
+    dimensions: 1536,
+    timeoutMs: 1000,
+  };
+  const vector = Array.from({ length: profile.dimensions }, () => 0.1);
+  const requests = [];
+  let returnedVector = vector;
+  let returnedModel = profile.model;
+  t.mock.method(globalThis, 'fetch', async (_url, options) => {
+    const body = JSON.parse(options.body);
+    requests.push(body);
+    return Response.json({
+      model: returnedModel,
+      data: [{ index: 0, embedding: returnedVector }],
+    });
+  });
+  const service = new EmbeddingProviderService(
+    new ConfigService({
+      OPENROUTER_API_KEY: 'test-key',
+      OPENROUTER_BASE_URL: 'https://openrouter.ai/api/v1',
+    }),
+  );
+  for (const [kind, model] of [
+    ['search_document', profile.model],
+    ['search_query', 'text-embedding-3-small'],
+  ]) {
+    returnedModel = model;
+    assert.deepEqual(await service.embed(['Texto municipal'], profile, kind), [
+      vector,
+    ]);
+    assert.deepEqual(requests.at(-1), {
+      model: profile.model,
+      input: ['Texto municipal'],
+      encoding_format: 'float',
+      dimensions: 1536,
+    });
+  }
+  returnedVector = [0.1];
+  await assert.rejects(service.embed(['Consulta'], profile, 'search_query'), {
+    code: 'INVALID_EMBEDDING_VECTOR',
+  });
+  returnedVector = vector;
+  returnedModel = 'text-embedding-3-large';
+  await assert.rejects(service.embed(['Consulta'], profile, 'search_query'), {
+    code: 'INVALID_EMBEDDING_RESPONSE',
+  });
+});
+
 test(
   'Markdown jobs preserve publications across failures and archive excludes retrieval',
   {

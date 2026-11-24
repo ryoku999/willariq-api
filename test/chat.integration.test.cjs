@@ -333,7 +333,14 @@ test(
       assert.equal(completed.status, 'COMPLETED');
       const answer = await latest();
       assert.equal(completed.finalOutput.messageId, answer.id);
-      assert.deepEqual(answer.metadata.sources, [
+      assert.deepEqual(answer.metadata, { kind: 'MUNICIPAL' });
+      const staff = await db.user.update({
+        where: { id: citizen.id },
+        data: { role: 'ADMIN' },
+      });
+      const staffAnswer = await latest(staff);
+      assert.equal(staffAnswer.content, answer.content);
+      assert.deepEqual(staffAnswer.metadata.sources, [
         {
           ref: 1,
           chunkId: chunk,
@@ -343,6 +350,10 @@ test(
           chunkIndex: 0,
         },
       ]);
+      await db.user.update({
+        where: { id: citizen.id },
+        data: { role: 'CITIZEN' },
+      });
       assert.equal(
         await db.aiJobKnowledgeChunk.count({
           where: { jobId: question.job.id, chunkId: chunk },
@@ -359,7 +370,7 @@ test(
       const low = await send('Consulta ajena al corpus');
       await run(low.job);
       assert.equal(calls.at(-1).path, '/api/v1/embeddings');
-      assert.deepEqual((await latest()).metadata.sources, []);
+      assert.deepEqual((await latest()).metadata, { kind: 'MUNICIPAL' });
 
       mode = 'invalid-citation';
       const invalid = await send('Respuesta con cita inventada');

@@ -81,8 +81,8 @@ Usa un Bearer de **CITIZEN**. Los POST de chat requieren **Body → raw → JSON
    Espera **202**. Guarda `data.job.id` como `chatJobId`. Repetir el mismo UUID y contenido devuelve el mismo mensaje y job. Cambiar el contenido con el mismo UUID o enviar otra pregunta mientras hay un trabajo activo devuelve **409**. Genera otro UUID para cada pregunta nueva.
 
 3. Consulta `GET {{UrlBase}}/chat/jobs/{{chatJobId}}` hasta `COMPLETED`. Guarda `data.finalOutput.messageId`. Busca ese ID en `GET {{UrlBase}}/chat/sessions/{{chatSessionId}}/messages?page=1&limit=20`. El listado muestra primero los mensajes recientes.
-4. Comprueba que la respuesta `ASSISTANT` tenga `metadata.sources` con `ref`, `documentId`, `chunkId`, `title`, `section` y `chunkIndex`. La API valida las referencias contra los fragmentos entregados al modelo y guarda las relaciones de cita.
-5. Pregunta algo fuera de tus documentos. Si no hay evidencia suficiente, la respuesta debe indicarlo, mostrar el canal oficial configurado cuando exista y traer `sources: []`. Si una pregunta cubierta produce ese resultado, revisa el perfil de publicación y ajusta el umbral con ejemplos conocidos.
+4. Comprueba que la respuesta `ASSISTANT` del ciudadano muestre el texto de la respuesta. En una sesión propia de ADMIN, repite la pregunta y comprueba que `metadata.sources` incluya `ref`, `documentId`, `chunkId`, `title`, `section` y `chunkIndex`. La API guarda y valida las citas para ambos roles y omite ese campo en el historial del ciudadano.
+5. Pregunta algo fuera de tus documentos. Si falta evidencia, la respuesta debe indicarlo y mostrar el canal oficial configurado cuando exista. En la sesión de ADMIN, comprueba que `sources` sea una lista vacía. Si una pregunta cubierta produce ese resultado, revisa el perfil de publicación y ajusta el umbral con ejemplos conocidos.
 
 Usa `GET /chat/sessions?page=1&limit=20` para listar tus conversaciones y `GET /chat/sessions/{{chatSessionId}}` para consultar su estado.
 
