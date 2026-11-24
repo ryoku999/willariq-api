@@ -24,6 +24,7 @@ import {
   TRACKING_PATTERN,
   UNAVAILABLE_TRACKING,
   chatEnabled,
+  localizeTrackingHistory,
   trackingMetadata,
 } from './chat.types';
 
@@ -183,7 +184,7 @@ export class ChatService {
             content:
               info.data.incidentId && !allowed.has(info.data.incidentId)
                 ? UNAVAILABLE_TRACKING
-                : message.content,
+                : localizeTrackingHistory(message.content),
             metadata: { kind: 'TRACKING' },
           };
         }

@@ -203,11 +203,12 @@ test(
         ),
       );
       const [citizen, other] = users;
-      const code = 'WQ-2026-000001';
+      const code = 'WIL-2026-000001';
       await db.incident.create({
         data: {
           trackingCode: code,
           reporterId: other.id,
+          status: 'ACCEPTED',
           clientRequestId: randomUUID(),
           originalMessage: 'Detalle interno',
           latitude: -12,
@@ -266,10 +267,15 @@ test(
       });
       const ownScope = await send(trackingInput.content);
       await run(ownScope.job);
-      assert.match(
-        (await latest({ ...citizen, role: 'SUPERVISOR' })).content,
-        new RegExp(code),
-      );
+      const supervisor = { ...citizen, role: 'SUPERVISOR' };
+      const trackingReply = await latest(supervisor);
+      const expectedReply = `La incidencia ${code} tiene el estado «Aceptada».`;
+      assert.equal(trackingReply.content, expectedReply);
+      await db.chatMessage.update({
+        where: { id: trackingReply.id },
+        data: { content: `La incidencia ${code} tiene el estado ACCEPTED.` },
+      });
+      assert.equal((await latest(supervisor)).content, expectedReply);
       await db.user.update({
         where: { id: citizen.id },
         data: { role: 'CITIZEN' },

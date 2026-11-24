@@ -27,6 +27,7 @@ import {
   chatRoutes,
   chatSnapshot,
   generatedAnswer,
+  trackingReply,
   UNAVAILABLE_TRACKING,
 } from './chat.types';
 import type z from 'zod';
@@ -215,7 +216,7 @@ export class ChatProcessor implements OnModuleInit {
       ? {
           kind: 'TRACKING',
           incidentId: incident.id,
-          content: `La incidencia ${incident.trackingCode} tiene el estado ${incident.status}.`,
+          content: trackingReply(incident.trackingCode, incident.status),
         }
       : { kind: 'TRACKING', content: UNAVAILABLE_TRACKING };
   }
