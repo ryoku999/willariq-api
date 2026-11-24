@@ -12,7 +12,10 @@ import {
 import { AuthService } from './auth.service';
 import { Throttle } from '@nestjs/throttler';
 import { RegisterDto } from './dto/register.dto';
-import { RegisterResponse, WebLoginRes } from './interfaces/auth.interface';
+import {
+  AuthUserResponse,
+  RegisterResponse,
+} from './interfaces/auth.interface';
 import { LoginDto } from './dto/login.dto';
 import { AuthCookieService } from './services/auth-cookie.service';
 import { type Request, type Response } from 'express';
@@ -31,13 +34,19 @@ export class AuthController {
     return this.authService.register(body);
   }
 
+  @Post('mobile/register')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  mobileRegister(@Body() body: LoginDto) {
+    return this.authService.registerMobileCitizen(body);
+  }
+
   @Post('web/login')
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   async webLogin(
     @Body() body: LoginDto,
     @Res({ passthrough: true }) response: Response,
-  ): Promise<WebLoginRes> {
+  ): Promise<AuthUserResponse> {
     const result = await this.authService.login(body, 'web');
     this.authCookieService.setCookies(response, result.tokens);
     return result.user;

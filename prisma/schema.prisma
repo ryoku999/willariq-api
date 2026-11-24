@@ -266,10 +266,10 @@ enum DevicePlatform {
 
 model User {
   id              String     @id @default(uuid(7)) @db.Uuid
-  firstName       String     @db.VarChar(80)
+  firstName       String?    @db.VarChar(80)
   lastName        String?    @db.VarChar(120)
   dni             String     @unique @db.VarChar(8)
-  phone           String     @unique @db.VarChar(20)
+  phone           String?    @unique @db.VarChar(20)
   email           String?    @unique @db.VarChar(160)
   passwordHash    String     @db.VarChar(255)
   emailVerifiedAt DateTime?

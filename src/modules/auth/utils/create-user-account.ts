@@ -6,10 +6,12 @@ import type { RegisterResponse } from '../interfaces/auth.interface';
 
 export async function createUserAccount(
   db: Pick<Prisma.TransactionClient, 'user'>,
-  dto: RegisterDto,
+  dto: Pick<RegisterDto, 'dni' | 'password'> &
+    Partial<Pick<RegisterDto, 'firstName' | 'lastName' | 'phone'>>,
   role: UserRole,
 ): Promise<RegisterResponse> {
-  const uniqueFilters = [{ dni: dto.dni }, { phone: dto.phone }];
+  const uniqueFilters: Prisma.UserWhereInput[] = [{ dni: dto.dni }];
+  if (dto.phone !== undefined) uniqueFilters.push({ phone: dto.phone });
   const userFound = await db.user.findFirst({
     where: { OR: uniqueFilters },
     select: { id: true },

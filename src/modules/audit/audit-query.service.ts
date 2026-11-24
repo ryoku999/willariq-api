@@ -198,8 +198,12 @@ export class AuditQueryService {
       group.add(entityId);
       groups.set(entityType, group);
     }
-    const name = (user: { firstName: string; lastName: string | null }) =>
-      [user.firstName, user.lastName].filter(Boolean).join(' ');
+    const name = (user: {
+      firstName: string | null;
+      lastName: string | null;
+    }) =>
+      [user.firstName, user.lastName].filter(Boolean).join(' ') ||
+      'Sin nombre registrado';
     await Promise.all(
       [...groups].map(async ([type, ids]) => {
         const where = { id: { in: [...ids] } };

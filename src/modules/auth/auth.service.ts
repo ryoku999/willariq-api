@@ -2,6 +2,7 @@ import { createUserAccount } from './utils/create-user-account';
 import { lockAccount } from './utils/account-lock';
 import { DatabaseService } from '@/database/database.service';
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   UnauthorizedException,
@@ -13,7 +14,7 @@ import {
   RegisterResponse,
 } from './interfaces/auth.interface';
 import bcrypt from 'bcryptjs';
-import { UserRole, UserStatus } from '@/generated/prisma/client';
+import { Prisma, UserRole, UserStatus } from '@/generated/prisma/client';
 import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from '@/shared/interfaces/jwt-payload.interface';
 import { JwtService } from '@nestjs/jwt';
@@ -61,6 +62,25 @@ export class AuthService {
     return createUserAccount(this.db, dto, UserRole.CITIZEN);
   }
 
+  async registerMobileCitizen(dto: LoginDto): Promise<LoginResponseI> {
+    const password = dto.password.trim();
+    if (!password || password === dto.dni) {
+      throw new BadRequestException('Elige una contraseña distinta de tu DNI');
+    }
+    if (Buffer.byteLength(dto.password, 'utf8') > 72) {
+      throw new BadRequestException('La contraseña supera el máximo permitido');
+    }
+    return this.db.$transaction(async (tx) => {
+      const { createdAt, updatedAt, ...user } = await createUserAccount(
+        tx,
+        dto,
+        UserRole.CITIZEN,
+      );
+      const tokens = await this.startSession(tx, user.id, user.role, 0);
+      return { user, tokens };
+    });
+  }
+
   async login(dto: LoginDto, channel: AuthChannel): Promise<LoginResponseI> {
     const userFound = await this.db.user.findUnique({
       where: { dni: dto.dni },
@@ -93,18 +113,12 @@ export class AuthService {
         throw new UnauthorizedException('Credenciales incorrectas');
       }
       assertChannelRole(user.role, channel);
-      const tokens = await this.createTokensResponse(
+      const tokens = await this.startSession(
+        tx,
         user.id,
         user.role,
         user.sessionVersion,
       );
-      await tx.refreshToken.create({
-        data: {
-          userId: user.id,
-          tokenHash: hashRefreshToken(tokens.refreshToken),
-          expiresAt: new Date(Date.now() + this.refreshExpiresInMs),
-        },
-      });
       return {
         tokens,
         user: {
@@ -120,6 +134,27 @@ export class AuthService {
         },
       };
     });
+  }
+
+  private async startSession(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    role: UserRole,
+    sessionVersion: number,
+  ) {
+    const tokens = await this.createTokensResponse(
+      userId,
+      role,
+      sessionVersion,
+    );
+    await tx.refreshToken.create({
+      data: {
+        userId,
+        tokenHash: hashRefreshToken(tokens.refreshToken),
+        expiresAt: new Date(Date.now() + this.refreshExpiresInMs),
+      },
+    });
+    return tokens;
   }
 
   private async createTokensResponse(
