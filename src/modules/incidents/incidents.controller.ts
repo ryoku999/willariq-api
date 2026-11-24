@@ -70,7 +70,7 @@ export class IncidentsController {
   }
 
   @Post(':id/cancel')
-  @Auth(UserRole.CITIZEN, UserRole.ADMIN, UserRole.SUPERVISOR)
+  @Auth(UserRole.CITIZEN, UserRole.ADMIN, UserRole.OPERATOR)
   @HttpCode(HttpStatus.OK)
   cancel(
     @CurrentUser() actor: AuthenticatedUser,

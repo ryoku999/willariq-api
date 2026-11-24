@@ -8,7 +8,6 @@ import {
   IsInt,
   IsNotEmpty,
   IsNumber,
-  IsOptional,
   IsString,
   IsUUID,
   Max,
@@ -65,36 +64,11 @@ export class ReviewIncidentDto extends WorkflowReasonDto {
   @Type(() => ReviewEntityDto)
   entities!: ReviewEntityDto[];
 }
-export class RejectIncidentDto extends WorkflowReasonDto {
-  @Transform(trim)
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(80)
-  rejectionReason!: string;
+export class TransferIncidentDto extends WorkflowReasonDto {
+  @IsUUID() responsibleId!: string;
 }
-export class CreateAssignmentDto extends IncidentVersionDto {
-  @IsUUID() areaId!: string;
-  @IsOptional() @IsUUID() operatorId?: string;
-  @IsOptional()
-  @Transform(trim)
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(1000)
-  note?: string;
-}
-export class AssignmentVersionDto extends IncidentVersionDto {
-  @IsUUID() assignmentId!: string;
-  @IsInt() @Min(1) @Max(2147483646) expectedAssignmentVersion!: number;
-}
-export class ReassignIncidentDto extends CreateAssignmentDto {
-  @IsUUID() assignmentId!: string;
-  @IsInt() @Min(1) @Max(2147483646) expectedAssignmentVersion!: number;
-  @Transform(trim) @IsString() @IsNotEmpty() @MaxLength(1000) reason!: string;
-}
-export class CancelAssignmentDto extends AssignmentVersionDto {
-  @Transform(trim) @IsString() @IsNotEmpty() @MaxLength(1000) reason!: string;
-}
-export class ResolveIncidentDto extends AssignmentVersionDto {
+
+export class CloseIncidentDto extends IncidentVersionDto {
   @Transform(trim)
   @IsString()
   @IsNotEmpty()

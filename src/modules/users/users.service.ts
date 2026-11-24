@@ -195,15 +195,15 @@ export class UsersService {
       await transaction.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
       if (
         dto.status !== UserStatus.ACTIVE &&
-        (await transaction.incidentAssignment.count({
+        (await transaction.incident.count({
           where: {
-            operatorId: userId,
-            status: { in: ['ASSIGNED', 'ACCEPTED', 'IN_PROGRESS'] },
+            responsibleId: userId,
+            status: { in: ['ACCEPTED', 'IN_PROGRESS'] },
           },
         }))
       ) {
         throw new ConflictException(
-          'El usuario tiene asignaciones activas pendientes',
+          'El usuario tiene incidencias activas a su cargo',
         );
       }
       const updated = await transaction.user.update({
@@ -294,15 +294,15 @@ export class UsersService {
       }
       if (
         dto.role !== current.role &&
-        (await transaction.incidentAssignment.count({
+        (await transaction.incident.count({
           where: {
-            operatorId: userId,
-            status: { in: ['ASSIGNED', 'ACCEPTED', 'IN_PROGRESS'] },
+            responsibleId: userId,
+            status: { in: ['ACCEPTED', 'IN_PROGRESS'] },
           },
         }))
       ) {
         throw new ConflictException(
-          'El usuario tiene asignaciones activas pendientes',
+          'El usuario tiene incidencias activas a su cargo',
         );
       }
       const updated = await transaction.user.update({

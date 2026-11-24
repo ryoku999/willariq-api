@@ -31,9 +31,7 @@ function assertChannelRole(role: UserRole, channel: AuthChannel) {
   const allowed =
     channel === 'mobile'
       ? role === UserRole.CITIZEN
-      : role === UserRole.ADMIN ||
-        role === UserRole.SUPERVISOR ||
-        role === UserRole.OPERATOR;
+      : role === UserRole.ADMIN || role === UserRole.OPERATOR;
   if (allowed) return;
   throw new ForbiddenException({
     code: 'AUTH_CHANNEL_ROLE_FORBIDDEN',
@@ -71,13 +69,32 @@ export class AuthService {
       throw new BadRequestException('La contraseña supera el máximo permitido');
     }
     return this.db.$transaction(async (tx) => {
-      const { createdAt, updatedAt, ...user } = await createUserAccount(
-        tx,
-        dto,
-        UserRole.CITIZEN,
-      );
-      const tokens = await this.startSession(tx, user.id, user.role, 0);
-      return { user, tokens };
+      const {
+        id,
+        firstName,
+        lastName,
+        dni,
+        phone,
+        email,
+        emailVerifiedAt,
+        role,
+        status,
+      } = await createUserAccount(tx, dto, UserRole.CITIZEN);
+      const tokens = await this.startSession(tx, id, role, 0);
+      return {
+        user: {
+          id,
+          firstName,
+          lastName,
+          dni,
+          phone,
+          email,
+          emailVerifiedAt,
+          role,
+          status,
+        },
+        tokens,
+      };
     });
   }
 

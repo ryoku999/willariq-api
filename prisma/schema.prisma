@@ -15,7 +15,6 @@ datasource db {
 
 enum UserRole {
   ADMIN
-  SUPERVISOR
   OPERATOR
   CITIZEN
 }
@@ -24,16 +23,6 @@ enum UserStatus {
   ACTIVE
   INACTIVE
   BLOCKED
-}
-
-enum AreaMemberRole {
-  MANAGER
-  OPERATOR
-}
-
-enum MunicipalAreaStatus {
-  ACTIVE
-  INACTIVE
 }
 
 enum IncidentSource {
@@ -81,7 +70,7 @@ enum IncidentCategory {
 enum IncidentStatus {
   RECEIVED
   AI_ANALYSIS
-  IN_REVIEW
+  NEW
   ACCEPTED
   ASSIGNED
   IN_PROGRESS
@@ -89,15 +78,6 @@ enum IncidentStatus {
   REJECTED
   CLOSED
   CANCELLED
-}
-
-enum AssignmentStatus {
-  ASSIGNED
-  ACCEPTED
-  IN_PROGRESS
-  COMPLETED
-  CANCELLED
-  REASSIGNED
 }
 
 enum UrgencyLevel {
@@ -279,26 +259,24 @@ model User {
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
-  refreshTokens               RefreshToken[]
-  passwordResetTokens         PasswordResetToken[]
-  emailVerificationTokens     EmailVerificationToken[]
-  incidents                   Incident[]               @relation("IncidentReporter")
-  incidentHistories           IncidentHistory[]
-  assignments                 IncidentAssignment[]     @relation("AssignmentOperator")
-  assignedIncidentAssignments IncidentAssignment[]     @relation("AssignmentCreator")
-  areaMemberships             MunicipalAreaMember[]
-  requestedAiJobs             AiJob[]                  @relation("AiJobRequester")
-  chatSessions                ChatSession[]
-  notifications               Notification[]
-  devices                     UserDevice[]
-  auditLogs                   AuditLog[]
-  uploadedEvidence            IncidentEvidence[]       @relation("EvidenceUploader")
-  evidenceUploadIntents       EvidenceUploadIntent[]   @relation("EvidenceUploadRequester")
-  reviewedIncidents           Incident[]               @relation("IncidentReviewer")
-  resolvedIncidents           Incident[]               @relation("IncidentResolver")
-  createdKnowledgeDocs        KnowledgeDocument[]      @relation("KnowledgeCreatedBy")
-  publishedKnowledgeDocs      KnowledgeDocument[]      @relation("KnowledgePublishedBy")
-  knowledgeUploadIntents      KnowledgeUploadIntent[]
+  refreshTokens           RefreshToken[]
+  passwordResetTokens     PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  incidents               Incident[]               @relation("IncidentReporter")
+  incidentHistories       IncidentHistory[]
+  responsibleIncidents    Incident[]               @relation("IncidentResponsible")
+  requestedAiJobs         AiJob[]                  @relation("AiJobRequester")
+  chatSessions            ChatSession[]
+  notifications           Notification[]
+  devices                 UserDevice[]
+  auditLogs               AuditLog[]
+  uploadedEvidence        IncidentEvidence[]       @relation("EvidenceUploader")
+  evidenceUploadIntents   EvidenceUploadIntent[]   @relation("EvidenceUploadRequester")
+  reviewedIncidents       Incident[]               @relation("IncidentReviewer")
+  resolvedIncidents       Incident[]               @relation("IncidentResolver")
+  createdKnowledgeDocs    KnowledgeDocument[]      @relation("KnowledgeCreatedBy")
+  publishedKnowledgeDocs  KnowledgeDocument[]      @relation("KnowledgePublishedBy")
+  knowledgeUploadIntents  KnowledgeUploadIntent[]
 
   @@index([role, status])
   @@index([email, status])
@@ -364,43 +342,6 @@ model UserDevice {
   @@map("user_devices")
 }
 
-model MunicipalArea {
-  id             String              @id @default(uuid(7)) @db.Uuid
-  code           String              @unique @db.VarChar(30)
-  normalizedCode String              @unique @db.VarChar(30)
-  name           String              @unique @db.VarChar(120)
-  normalizedName String              @unique @db.VarChar(120)
-  description    String?             @db.Text
-  phone          String?             @db.VarChar(30)
-  email          String?             @db.VarChar(160)
-  status         MunicipalAreaStatus @default(ACTIVE)
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
-
-  members     MunicipalAreaMember[]
-  assignments IncidentAssignment[]
-
-  @@index([status])
-  @@map("municipal_areas")
-}
-
-model MunicipalAreaMember {
-  id        String         @id @default(uuid(7)) @db.Uuid
-  areaId    String         @db.Uuid
-  area      MunicipalArea  @relation(fields: [areaId], references: [id], onDelete: Cascade)
-  userId    String         @db.Uuid
-  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role      AreaMemberRole @default(OPERATOR)
-  active    Boolean        @default(true)
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
-
-  @@unique([areaId, userId])
-  @@index([userId, active])
-  @@index([areaId, active])
-  @@map("municipal_area_members")
-}
-
 model Incident {
   id                   String                        @id @default(uuid(7)) @db.Uuid
   trackingCode         String                        @unique @db.VarChar(30)
@@ -433,19 +374,21 @@ model Incident {
   reviewedById String?        @db.Uuid
   reviewedBy   User?          @relation("IncidentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
 
-  reviewedAt        DateTime?
-  acceptedAt        DateTime?
-  assignedAt        DateTime?
-  startedAt         DateTime?
-  resolvedAt        DateTime?
-  resolvedById      String?   @db.Uuid
-  resolvedBy        User?     @relation("IncidentResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
-  resolutionSummary String?   @db.Text
-  rejectedAt        DateTime?
-  rejectionReason   String?   @db.VarChar(80)
-  rejectionComment  String?   @db.Text
-  closedAt          DateTime?
-  cancelledAt       DateTime?
+  reviewedAt         DateTime?
+  acceptedAt         DateTime?
+  responsibleId      String?   @db.Uuid
+  responsible        User?     @relation("IncidentResponsible", fields: [responsibleId], references: [id], onDelete: SetNull)
+  cancellationReason String?   @db.Text
+  startedAt          DateTime?
+  resolvedAt         DateTime?
+  resolvedById       String?   @db.Uuid
+  resolvedBy         User?     @relation("IncidentResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+  resolutionSummary  String?   @db.Text
+  rejectedAt         DateTime?
+  rejectionReason    String?   @db.VarChar(80)
+  rejectionComment   String?   @db.Text
+  closedAt           DateTime?
+  cancelledAt        DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -454,7 +397,6 @@ model Incident {
   evidence              IncidentEvidence[]
   evidenceUploadIntents EvidenceUploadIntent[]
   histories             IncidentHistory[]
-  assignments           IncidentAssignment[]
   aiJobs                AiJob[]
   chatSessions          ChatSession[]
 
@@ -465,6 +407,7 @@ model Incident {
   @@index([category, status])
   @@index([type, status])
   @@index([requiresSupervision, status])
+  @@index([responsibleId, status])
   @@map("incidents")
 }
 
@@ -569,40 +512,6 @@ model IncidentHistory {
   @@map("incident_history")
 }
 
-model IncidentAssignment {
-  id             String              @id @default(uuid(7)) @db.Uuid
-  incidentId     String              @db.Uuid
-  incident       Incident            @relation(fields: [incidentId], references: [id], onDelete: Cascade)
-  areaId         String              @db.Uuid
-  area           MunicipalArea       @relation(fields: [areaId], references: [id], onDelete: Restrict)
-  operatorId     String?             @db.Uuid
-  operator       User?               @relation("AssignmentOperator", fields: [operatorId], references: [id], onDelete: SetNull)
-  assignedById   String?             @db.Uuid
-  assignedBy     User?               @relation("AssignmentCreator", fields: [assignedById], references: [id], onDelete: SetNull)
-  status         AssignmentStatus    @default(ASSIGNED)
-  version        Int                 @default(1)
-  note           String?             @db.Text
-  completionNote String?             @db.Text
-  reassignedAt   DateTime?
-  replacesId     String?             @unique @db.Uuid
-  replaces       IncidentAssignment? @relation("AssignmentReplacement", fields: [replacesId], references: [id], onDelete: SetNull)
-  replacedBy     IncidentAssignment? @relation("AssignmentReplacement")
-  assignedAt     DateTime            @default(now())
-  acceptedAt     DateTime?
-  startedAt      DateTime?
-  completedAt    DateTime?
-  cancelledAt    DateTime?
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
-
-  // Una asignacion activa por incidencia: indice parcial SQL en 20261105030000_active_incident_assignment.
-  @@index([incidentId, assignedAt])
-  @@index([areaId, status])
-  @@index([operatorId, status])
-  @@index([assignedById, createdAt])
-  @@map("incident_assignments")
-}
-
 model ChatSession {
   id         String     @id @default(uuid(7)) @db.Uuid
   userId     String     @db.Uuid
@@ -682,11 +591,11 @@ model AiJob {
   trigger AiJobTrigger @default(AUTOMATIC)
   status  AiJobStatus  @default(PENDING)
 
-  incidentId    String?      @db.Uuid
-  incident      Incident?    @relation(fields: [incidentId], references: [id], onDelete: Cascade)
-  knowledgeDocumentId String? @db.Uuid
-  knowledgeDocument KnowledgeDocument? @relation(fields: [knowledgeDocumentId], references: [id], onDelete: Cascade)
-  knowledgeChunks KnowledgeChunk[]
+  incidentId            String?                @db.Uuid
+  incident              Incident?              @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  knowledgeDocumentId   String?                @db.Uuid
+  knowledgeDocument     KnowledgeDocument?     @relation(fields: [knowledgeDocumentId], references: [id], onDelete: Cascade)
+  knowledgeChunks       KnowledgeChunk[]
   knowledgePublications KnowledgePublication[]
 
   chatMessageId String?      @db.Uuid
@@ -848,8 +757,8 @@ model KnowledgeChunk {
   tokenCount Int?
   metadata   Json?
 
-  embeddingJobId String? @db.Uuid
-  embeddingJob AiJob? @relation(fields: [embeddingJobId], references: [id], onDelete: Cascade)
+  embeddingJobId      String? @db.Uuid
+  embeddingJob        AiJob?  @relation(fields: [embeddingJobId], references: [id], onDelete: Cascade)
   embeddingDimensions Int?
 
   embeddingProvider AiProvider             @default(OPENROUTER)
@@ -869,13 +778,13 @@ model KnowledgeChunk {
 }
 
 model KnowledgePublication {
-  documentId String @db.Uuid
-  document KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  jobId String @db.Uuid
-  job AiJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  model String @db.VarChar(180)
-  dimensions Int
-  publishedAt DateTime @default(now())
+  documentId  String            @db.Uuid
+  document    KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  jobId       String            @db.Uuid
+  job         AiJob             @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  model       String            @db.VarChar(180)
+  dimensions  Int
+  publishedAt DateTime          @default(now())
 
   @@id([documentId, model, dimensions])
   @@index([model, dimensions])

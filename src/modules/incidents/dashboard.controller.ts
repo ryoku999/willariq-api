@@ -1,3 +1,4 @@
+import { IncidentStatus } from '@/generated/prisma/enums';
 import { Controller, Get } from '@nestjs/common';
 import { DatabaseService } from '@/database/database.service';
 import { Auth } from '@/shared/decorators/auth.decorator';
@@ -5,8 +6,21 @@ import { CurrentUser } from '@/shared/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '@/shared/interfaces/authenticated-user.interface';
 import { IncidentAccessService } from './incident-access.service';
 
+const openStatuses: IncidentStatus[] = [
+  'NEW',
+  'ACCEPTED',
+  'IN_PROGRESS',
+  'RESOLVED',
+];
+const cancellationReasons = new Set([
+  'Duplicado',
+  'Spam o reporte falso',
+  'Fuera de alcance',
+  'Otro',
+]);
+
 @Controller('dashboard')
-@Auth('ADMIN', 'SUPERVISOR', 'OPERATOR')
+@Auth('ADMIN', 'OPERATOR')
 export class DashboardController {
   constructor(
     private readonly db: DatabaseService,
@@ -29,32 +43,62 @@ export class DashboardController {
           where,
           _count: { _all: true },
         });
-        const memberships = await tx.municipalAreaMember.findMany({
-          where: {
-            userId: actor.id,
-            active: true,
-            role: 'MANAGER',
-            area: { status: 'ACTIVE' },
-          },
-          select: { areaId: true },
+        const oldest = await tx.incident.findFirst({
+          where: { AND: [where, { status: { in: openStatuses } }] },
+          orderBy: { submittedAt: 'asc' },
+          select: { submittedAt: true },
         });
+        const reasons = new Map<string, number>();
         // Read bounded batches so the measurement uses the same Prisma access policy as the list.
         let cursor: string | undefined;
         let count = 0;
-        let minutes = 0;
+        let cancelled = 0;
+        const metrics = {
+          acceptance: [] as number[],
+          start: [] as number[],
+          handling: [] as number[],
+          closure: [] as number[],
+        };
         for (;;) {
           const rows = await tx.incident.findMany({
-            where: { AND: [where, { resolvedAt: { gte: since } }] },
-            select: { id: true, createdAt: true, resolvedAt: true },
+            where: { AND: [where, { submittedAt: { gte: since } }] },
+            select: {
+              id: true,
+              submittedAt: true,
+              acceptedAt: true,
+              startedAt: true,
+              closedAt: true,
+              status: true,
+              cancellationReason: true,
+            },
             orderBy: { id: 'asc' },
             take: 500,
             ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
           });
           for (const row of rows) {
-            if (!row.resolvedAt || row.resolvedAt < row.createdAt) continue;
             count++;
-            minutes +=
-              (row.resolvedAt.getTime() - row.createdAt.getTime()) / 60000;
+            if (row.status === 'CANCELLED') {
+              cancelled++;
+              const reason = row.cancellationReason?.split(' · ', 1)[0] ?? '';
+              const label = cancellationReasons.has(reason)
+                ? reason
+                : 'Sin clasificación';
+              reasons.set(label, (reasons.get(label) ?? 0) + 1);
+            }
+            const add = (
+              values: number[],
+              start: Date | null,
+              end: Date | null,
+            ) => {
+              if (start && end && end >= start)
+                values.push((end.getTime() - start.getTime()) / 60000);
+            };
+            add(metrics.acceptance, row.submittedAt, row.acceptedAt);
+            add(metrics.start, row.submittedAt, row.startedAt);
+            if (row.status === 'CLOSED') {
+              add(metrics.handling, row.startedAt, row.closedAt);
+              add(metrics.closure, row.submittedAt, row.closedAt);
+            }
           }
           if (rows.length < 500) break;
           cursor = rows.at(-1)?.id;
@@ -69,12 +113,46 @@ export class DashboardController {
             urgency: item.urgency,
             count: item._count._all,
           })),
-          resolution: {
-            since: since.toISOString(),
+          since: since.toISOString(),
+          submitted: count,
+          cancelled,
+          cancellationReasons: [...reasons].map(([reason, count]) => ({
+            reason,
             count,
-            averageMinutes: count ? Math.round(minutes / count) : null,
+          })),
+          pending: {
+            count: status
+              .filter((item) => openStatuses.includes(item.status))
+              .reduce((sum, item) => sum + item._count._all, 0),
+            oldestSubmittedAt: oldest?.submittedAt ?? null,
           },
-          managedAreaIds: memberships.map((item) => item.areaId),
+          timings: Object.fromEntries(
+            Object.entries(metrics).map(([key, values]) => {
+              values.sort((a, b) => a - b);
+              const size = values.length;
+              return [
+                key,
+                {
+                  count: size,
+                  averageMinutes: size
+                    ? Math.round(
+                        values.reduce((sum, value) => sum + value, 0) / size,
+                      )
+                    : null,
+                  medianMinutes: size
+                    ? Math.round(
+                        (values[Math.floor((size - 1) / 2)] +
+                          values[Math.floor(size / 2)]) /
+                          2,
+                      )
+                    : null,
+                  p90Minutes: size
+                    ? Math.round(values[Math.ceil(size * 0.9) - 1])
+                    : null,
+                },
+              ];
+            }),
+          ),
         };
       },
       { isolationLevel: 'RepeatableRead', timeout: 15000 },

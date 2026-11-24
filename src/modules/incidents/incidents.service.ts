@@ -17,6 +17,7 @@ import {
 } from '@/generated/prisma/enums';
 import { AuthenticatedUser } from '@/shared/interfaces/authenticated-user.interface';
 import { AuditService } from '../audit/audit.service';
+import { IncidentEventsGateway } from './incident-events.gateway';
 import { IncidentAccessService } from './incident-access.service';
 import { IncidentTrackingService } from './incident-tracking.service';
 import { CreateIncidentDto } from './dto/create-incident.dto';
@@ -40,6 +41,7 @@ export class IncidentsService {
     private readonly db: DatabaseService,
     private readonly audit: AuditService,
     private readonly access: IncidentAccessService,
+    private readonly events: IncidentEventsGateway,
     private readonly tracking: IncidentTrackingService,
   ) {}
 
@@ -164,19 +166,7 @@ export class IncidentsService {
               }
             : {}),
           ...(from || to ? { createdAt: { gte: from, lte: to } } : {}),
-          ...(query.areaId || query.operatorId
-            ? {
-                assignments: {
-                  some: {
-                    replacedBy: { is: null },
-                    ...(query.areaId ? { areaId: query.areaId } : {}),
-                    ...(query.operatorId
-                      ? { operatorId: query.operatorId }
-                      : {}),
-                  },
-                },
-              }
-            : {}),
+          responsibleId: query.responsibleId,
         },
       ],
     };
@@ -209,7 +199,7 @@ export class IncidentsService {
       select: INCIDENT_DETAIL_SELECT,
     });
     if (!incident) throw new NotFoundException('Incidencia no encontrada');
-    return this.toDetail(incident);
+    return this.toDetail(incident, actor.role === UserRole.CITIZEN);
   }
 
   async history(
@@ -251,7 +241,7 @@ export class IncidentsService {
     context: IncidentAuditContext,
   ) {
     if (
-      ![UserRole.CITIZEN, UserRole.ADMIN, UserRole.SUPERVISOR].some(
+      ![UserRole.CITIZEN, UserRole.ADMIN, UserRole.OPERATOR].some(
         (role) => role === actor.role,
       )
     ) {
@@ -259,7 +249,7 @@ export class IncidentsService {
         'No tienes permisos para cancelar incidencias',
       );
     }
-    return this.db.$transaction(async (tx) => {
+    const result = await this.db.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM incidents WHERE id = ${id}::uuid FOR UPDATE`;
       const current = await this.access.assertReadable(tx, actor, id);
       if (current.version !== dto.expectedVersion) {
@@ -271,14 +261,22 @@ export class IncidentsService {
         actor.role === UserRole.CITIZEN
           ? [IncidentStatus.RECEIVED]
           : [
-              IncidentStatus.RECEIVED,
-              IncidentStatus.AI_ANALYSIS,
-              IncidentStatus.IN_REVIEW,
+              IncidentStatus.NEW,
               IncidentStatus.ACCEPTED,
+              IncidentStatus.IN_PROGRESS,
             ];
+      if (
+        actor.role === UserRole.OPERATOR &&
+        current.responsibleId &&
+        current.responsibleId !== actor.id
+      ) {
+        throw new ForbiddenException(
+          'La incidencia está a cargo de otro operador',
+        );
+      }
       if (!allowed.includes(current.status)) {
         throw new ConflictException(
-          'No se puede cancelar desde el estado actual; cancela primero la asignacion activa',
+          'No se puede cancelar desde el estado actual',
         );
       }
       const changed = await tx.incident.updateMany({
@@ -290,6 +288,7 @@ export class IncidentsService {
         data: {
           status: IncidentStatus.CANCELLED,
           cancelledAt: new Date(),
+          cancellationReason: dto.reason.trim(),
           version: { increment: 1 },
         },
       });
@@ -350,8 +349,11 @@ export class IncidentsService {
         where: { id },
         select: INCIDENT_DETAIL_SELECT,
       });
-      return this.toDetail(updated);
+      return this.toDetail(updated, actor.role === UserRole.CITIZEN);
     });
+    if (actor.role !== UserRole.CITIZEN)
+      this.events.publish(id, result.version);
+    return result;
   }
 
   private replay(
@@ -367,9 +369,10 @@ export class IncidentsService {
     return this.toDetail(detail);
   }
 
-  private toDetail(incident: IncidentDetail) {
+  private toDetail(incident: IncidentDetail, hideResponsible = false) {
     return {
       ...incident,
+      ...(hideResponsible ? { responsible: null, responsibleId: null } : {}),
       latitude: incident.latitude.toNumber(),
       longitude: incident.longitude.toNumber(),
       aiConfidence: incident.aiConfidence?.toNumber() ?? null,

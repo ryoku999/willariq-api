@@ -33,6 +33,9 @@ const scalarFields = [
   'requiresSupervision',
   'classificationSource',
   'areaId',
+  'responsibleId',
+  'previousResponsibleId',
+  'resolutionSummary',
   'memberUserId',
   'incidentId',
   'incidentVersion',
@@ -223,25 +226,6 @@ export class AuditQueryService {
               select: { id: true, firstName: true, lastName: true },
             }))
               set(row.id, name(row));
-            break;
-          case 'MunicipalArea':
-            for (const row of await this.db.municipalArea.findMany({
-              where,
-              select: { id: true, name: true },
-            }))
-              set(row.id, row.name);
-            break;
-          case 'MunicipalAreaMember':
-            for (const row of await this.db.municipalAreaMember.findMany({
-              where,
-              select: {
-                id: true,
-                area: { select: { name: true } },
-                user: { select: { firstName: true, lastName: true } },
-              },
-            })) {
-              set(row.id, `${name(row.user)} · ${row.area.name}`);
-            }
             break;
           case 'IncidentEvidence':
             for (const row of await this.db.incidentEvidence.findMany({

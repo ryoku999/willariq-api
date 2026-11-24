@@ -1,3 +1,4 @@
+import { IncidentEventsGateway } from './incident-events.gateway';
 import { DashboardController } from './dashboard.controller';
 import { IncidentWorkflowService } from './incident-workflow.service';
 import { IncidentWorkflowController } from './incident-workflow.controller';
@@ -16,11 +17,17 @@ import { IncidentTrackingService } from './incident-tracking.service';
     DashboardController,
   ],
   providers: [
+    IncidentEventsGateway,
     IncidentWorkflowService,
     IncidentsService,
     IncidentAccessService,
     IncidentTrackingService,
   ],
-  exports: [IncidentWorkflowService, IncidentsService, IncidentAccessService],
+  exports: [
+    IncidentEventsGateway,
+    IncidentWorkflowService,
+    IncidentsService,
+    IncidentAccessService,
+  ],
 })
 export class IncidentsModule {}

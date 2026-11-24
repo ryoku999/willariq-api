@@ -55,9 +55,5 @@ export class ListIncidentsQueryDto extends IncidentPaginationQueryDto {
 
   @IsOptional()
   @IsUUID()
-  areaId?: string;
-
-  @IsOptional()
-  @IsUUID()
-  operatorId?: string;
+  responsibleId?: string;
 }

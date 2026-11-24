@@ -11,7 +11,7 @@ export const UNAVAILABLE_TRACKING =
 const incidentStatusLabels: Record<IncidentStatus, string> = {
   RECEIVED: 'Recibida',
   AI_ANALYSIS: 'En análisis',
-  IN_REVIEW: 'En revisión',
+  NEW: 'En revisión',
   ACCEPTED: 'Aceptada',
   ASSIGNED: 'Asignada',
   IN_PROGRESS: 'En atención',
