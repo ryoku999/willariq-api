@@ -59,8 +59,8 @@ test(
       queueService;
     const env = envSchema.parse({
       ...process.env,
-      MINIO_ENABLED: 'false',
-      MINIO_KNOWLEDGE_BUCKET: undefined,
+      RUSTFS_ENABLED: 'false',
+      RUSTFS_KNOWLEDGE_BUCKET: undefined,
       AI_ENABLED: 'true',
       AI_WORKER_ENABLED: 'false',
       BULLMQ_PREFIX: prefix,

@@ -78,24 +78,32 @@ export const envSchema = z
         return false;
       }
     }, 'Zona horaria de incidencias invalida'),
-    MINIO_ENABLED: z
+    RUSTFS_ENABLED: z
       .enum(['true', 'false'])
       .default('false')
       .transform((value) => value === 'true'),
-    MINIO_ENDPOINT: z
-      .string()
-      .trim()
-      .regex(/^[^/\\\s]+$/)
+    RUSTFS_ENDPOINT: z
+      .url()
+      .refine((value) => {
+        try {
+          const endpoint = new URL(value);
+          return (
+            ['http:', 'https:'].includes(endpoint.protocol) &&
+            endpoint.pathname === '/' &&
+            !endpoint.username &&
+            !endpoint.password &&
+            !endpoint.search &&
+            !endpoint.hash
+          );
+        } catch {
+          return false;
+        }
+      }, 'Usa una URL HTTP o HTTPS de RustFS, sin ruta ni credenciales')
       .optional(),
-    MINIO_PORT: z.coerce.number().int().min(1).max(65535).default(9000),
-    MINIO_USE_SSL: z
-      .enum(['true', 'false'])
-      .default('false')
-      .transform((value) => value === 'true'),
-    MINIO_ACCESS_KEY: z.string().min(1).optional(),
-    MINIO_SECRET_KEY: z.string().min(1).optional(),
-    MINIO_REGION: z.string().min(1).default('us-east-1'),
-    MINIO_EVIDENCE_BUCKET: z
+    RUSTFS_ACCESS_KEY: z.string().min(1).optional(),
+    RUSTFS_SECRET_KEY: z.string().min(1).optional(),
+    RUSTFS_REGION: z.string().min(1).default('us-east-1'),
+    RUSTFS_EVIDENCE_BUCKET: z
       .string()
       .regex(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/)
       .optional(),
@@ -167,7 +175,7 @@ export const envSchema = z
       .default(2000),
     OUTBOX_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(25),
     OUTBOX_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(100).default(10),
-    MINIO_KNOWLEDGE_BUCKET: z
+    RUSTFS_KNOWLEDGE_BUCKET: z
       .string()
       .regex(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/)
       .optional(),
@@ -267,30 +275,30 @@ export const envSchema = z
       });
     }
     if (
-      env.MINIO_KNOWLEDGE_BUCKET &&
-      (!env.MINIO_ENABLED ||
+      env.RUSTFS_KNOWLEDGE_BUCKET &&
+      (!env.RUSTFS_ENABLED ||
         !env.OPENROUTER_API_KEY ||
-        env.MINIO_KNOWLEDGE_BUCKET === env.MINIO_EVIDENCE_BUCKET)
+        env.RUSTFS_KNOWLEDGE_BUCKET === env.RUSTFS_EVIDENCE_BUCKET)
     ) {
       context.addIssue({
         code: 'custom',
-        path: ['MINIO_KNOWLEDGE_BUCKET'],
+        path: ['RUSTFS_KNOWLEDGE_BUCKET'],
         message:
           'Conocimiento requiere almacenamiento habilitado, bucket distinto al de evidencias y OPENROUTER_API_KEY',
       });
     }
-    if (!env.MINIO_ENABLED) return;
+    if (!env.RUSTFS_ENABLED) return;
     for (const key of [
-      'MINIO_ENDPOINT',
-      'MINIO_ACCESS_KEY',
-      'MINIO_SECRET_KEY',
-      'MINIO_EVIDENCE_BUCKET',
+      'RUSTFS_ENDPOINT',
+      'RUSTFS_ACCESS_KEY',
+      'RUSTFS_SECRET_KEY',
+      'RUSTFS_EVIDENCE_BUCKET',
     ] as const) {
       if (!env[key])
         context.addIssue({
           code: 'custom',
           path: [key],
-          message: 'Variable obligatoria cuando MINIO_ENABLED=true',
+          message: 'Variable obligatoria cuando RUSTFS_ENABLED=true',
         });
     }
   });

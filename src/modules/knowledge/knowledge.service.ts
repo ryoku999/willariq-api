@@ -73,7 +73,7 @@ export class KnowledgeService {
   ) {}
 
   get bucket() {
-    return this.config.get<string>('MINIO_KNOWLEDGE_BUCKET');
+    return this.config.get<string>('RUSTFS_KNOWLEDGE_BUCKET');
   }
   async upload(
     userId: string,

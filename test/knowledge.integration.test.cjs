@@ -191,7 +191,7 @@ test(
       db = new PrismaClient({ adapter: new PrismaPg(pool, { schema }) });
       assert.equal(await db.embeddingProfile.count(), 0);
       const config = new ConfigService({
-        MINIO_KNOWLEDGE_BUCKET: 'fixture-knowledge',
+        RUSTFS_KNOWLEDGE_BUCKET: 'fixture-knowledge',
         KNOWLEDGE_MAX_DOCUMENT_BYTES: 1048576,
         KNOWLEDGE_CHUNK_TARGET_CHARS: 800,
         KNOWLEDGE_CHUNK_OVERLAP_CHARS: 100,

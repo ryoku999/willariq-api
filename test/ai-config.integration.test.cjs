@@ -175,10 +175,10 @@ test(
     const config = new ConfigService({
       ...envSchema.parse({
         ...process.env,
-        MINIO_ENABLED: 'false',
-        MINIO_KNOWLEDGE_BUCKET: undefined,
+        RUSTFS_ENABLED: 'false',
+        RUSTFS_KNOWLEDGE_BUCKET: undefined,
       }),
-      MINIO_ENABLED: false,
+      RUSTFS_ENABLED: false,
       AI_ENABLED: false,
       AI_WORKER_ENABLED: false,
       CEREBRAS_API_KEY: 'test-credential-never-send',

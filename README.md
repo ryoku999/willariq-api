@@ -31,6 +31,10 @@
 $ pnpm install
 ```
 
+## Despliegue en Docker
+
+[Configuración de Docker y Dokploy](docs/despliegue-dokploy.md).
+
 ## Compile and run the project
 
 ```bash
