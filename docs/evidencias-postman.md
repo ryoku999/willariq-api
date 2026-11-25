@@ -14,21 +14,19 @@ Reinicia con `pnpm run start:dev`. Al arrancar con MinIO habilitado, la API veri
 Variables de API usadas en esta fase:
 
 ```dotenv
-MINIO_ENABLED=true
-MINIO_ENDPOINT=localhost
-MINIO_PORT=9000
-MINIO_USE_SSL=false
-MINIO_ACCESS_KEY=TU_ACCESS_KEY_DE_APLICACION
-MINIO_SECRET_KEY=TU_SECRET_KEY_DE_APLICACION
-MINIO_REGION=us-east-1
-MINIO_EVIDENCE_BUCKET=incident-evidence
+RUSTFS_ENABLED=true
+RUSTFS_ENDPOINT=http://127.0.0.1:9000
+RUSTFS_ACCESS_KEY=TU_ACCESS_KEY_DE_APLICACION
+RUSTFS_SECRET_KEY=TU_SECRET_KEY_DE_APLICACION
+RUSTFS_REGION=us-east-1
+RUSTFS_EVIDENCE_BUCKET=incident-evidence
 EVIDENCE_MAX_IMAGE_BYTES=5242880
 EVIDENCE_MAX_FILES_PER_INCIDENT=5
 EVIDENCE_MAX_TOTAL_BYTES_PER_INCIDENT=26214400
 UPLOAD_MAX_CONCURRENT_REQUESTS=4
 ```
 
-El endpoint es solo host, sin `http://`, puerto ni rutas. Dentro de Docker será el hostname accesible de MinIO, no `localhost`. No se utiliza `UPLOAD_TEMP_DIR`, `MINIO_PUBLIC_ENDPOINT`, credenciales raíz ni bucket de conocimiento para estos endpoints. Las variables booleanas convierten explícitamente `true`/`false`; `MINIO_ENABLED=false` deshabilita almacenamiento sin exigir credenciales.
+La URL de RustFS incluye el protocolo y el puerto S3, sin ruta. Usa el alias de Docker en el contenedor y la dirección publicada en desarrollo fuera de Docker. `RUSTFS_ENABLED=false` deshabilita el almacenamiento sin exigir credenciales.
 
 Los límites predeterminados son 5 MiB por archivo, cinco archivos y 25 MiB por incidencia, con cuatro cargas simultáneas por proceso de API. El esquema admite como máximo 20 MiB por imagen, 50 archivos, 1 GiB total y 16 cargas concurrentes; configura valores acordes a la memoria del servidor.
 

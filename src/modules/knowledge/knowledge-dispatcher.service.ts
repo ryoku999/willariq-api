@@ -23,6 +23,6 @@ export class KnowledgeDispatcherService extends OutboxDispatcherService {
     return 'EMBEDDING_DOCUMENT' as const;
   }
   protected override get enabled() {
-    return Boolean(this.config.get<string>('MINIO_KNOWLEDGE_BUCKET'));
+    return Boolean(this.config.get<string>('RUSTFS_KNOWLEDGE_BUCKET'));
   }
 }

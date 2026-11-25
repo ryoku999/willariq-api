@@ -7,7 +7,7 @@ La API guarda el original en RustFS, fragmenta el Markdown y genera vectores en 
 Conserva tu configuración de PostgreSQL con pgvector, Redis, RustFS y OpenRouter. El bucket privado de conocimiento debe ser distinto del de evidencias. Usa la misma credencial S3 de la API con permisos para leer, escribir y eliminar objetos en ese bucket. La eliminación permite compensar cargas si falla el registro en PostgreSQL.
 
 ```dotenv
-MINIO_KNOWLEDGE_BUCKET=municipal-knowledge
+RUSTFS_KNOWLEDGE_BUCKET=municipal-knowledge
 KNOWLEDGE_MAX_DOCUMENT_BYTES=1048576
 KNOWLEDGE_CHUNK_TARGET_CHARS=800
 KNOWLEDGE_CHUNK_OVERLAP_CHARS=100
@@ -16,7 +16,7 @@ KNOWLEDGE_WORKER_CONCURRENCY=1
 
 El modelo, las dimensiones, el tiempo máximo y el tamaño de lote se administran desde **Configuración de IA → Embeddings de conocimiento**. La migración crea la tabla vacía y conserva los vectores existentes. El ADMIN registra y activa el perfil desde el panel. [Guía de perfiles y reindexación](embeddings-perfiles-pruebas.md).
 
-El módulo reutiliza `MINIO_ENABLED=true`, `BULLMQ_PREFIX`, `OPENROUTER_API_KEY` y `OPENROUTER_BASE_URL`. Configurar el bucket activa el worker y su outbox. La migración vincula trabajos, fragmentos y publicaciones, y conserva la columna vectorial de longitud variable.
+El módulo reutiliza `RUSTFS_ENABLED=true`, `BULLMQ_PREFIX`, `OPENROUTER_API_KEY` y `OPENROUTER_BASE_URL`. Configurar el bucket activa el worker y su outbox. La migración vincula trabajos, fragmentos y publicaciones, y conserva la columna vectorial de longitud variable.
 
 Antes de arrancar la API, revisa las migraciones pendientes, aplícalas y regenera Prisma Client.
 

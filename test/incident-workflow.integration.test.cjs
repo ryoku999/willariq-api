@@ -84,8 +84,8 @@ test('Nest resolves the new modules without starting an application or opening s
   const config = new ConfigService(
     envSchema.parse({
       ...process.env,
-      MINIO_ENABLED: 'false',
-      MINIO_KNOWLEDGE_BUCKET: undefined,
+      RUSTFS_ENABLED: 'false',
+      RUSTFS_KNOWLEDGE_BUCKET: undefined,
       AI_ENABLED: 'false',
       AI_WORKER_ENABLED: 'false',
     }),

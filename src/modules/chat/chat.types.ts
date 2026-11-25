@@ -39,7 +39,7 @@ export function localizeTrackingHistory(content: string) {
 export function chatEnabled(config: ConfigService) {
   return (
     config.get<boolean>('CHAT_ENABLED') ??
-    Boolean(config.get<string>('MINIO_KNOWLEDGE_BUCKET'))
+    Boolean(config.get<string>('RUSTFS_KNOWLEDGE_BUCKET'))
   );
 }
 
