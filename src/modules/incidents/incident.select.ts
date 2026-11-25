@@ -18,7 +18,7 @@ export const INCIDENT_LIST_SELECT = {
   updatedAt: true,
 } as const satisfies Prisma.IncidentSelect;
 
-export const INCIDENT_DETAIL_SELECT = {
+export const INCIDENT_DETAIL_FIELDS = {
   ...INCIDENT_LIST_SELECT,
   originalMessage: true,
   improvedDescription: true,
@@ -26,14 +26,12 @@ export const INCIDENT_DETAIL_SELECT = {
   classificationSource: true,
   sentiment: true,
   keywords: true,
-  entities: { select: { type: true, value: true, confidence: true } },
   aiConfidence: true,
   addressReference: true,
   submittedAt: true,
   reviewedAt: true,
   acceptedAt: true,
   responsibleId: true,
-  responsible: { select: { id: true, firstName: true, lastName: true } },
   cancellationReason: true,
   startedAt: true,
   resolvedAt: true,
@@ -43,8 +41,18 @@ export const INCIDENT_DETAIL_SELECT = {
   rejectionComment: true,
   closedAt: true,
   cancelledAt: true,
+} as const satisfies Prisma.IncidentSelect;
+
+export const INCIDENT_DETAIL_SELECT = {
+  ...INCIDENT_DETAIL_FIELDS,
+  entities: { select: { type: true, value: true, confidence: true } },
+  responsible: { select: { id: true, firstName: true, lastName: true } },
   reporter: { select: { id: true, firstName: true, lastName: true } },
 } as const satisfies Prisma.IncidentSelect;
+
+export type IncidentDetailFields = Prisma.IncidentGetPayload<{
+  select: typeof INCIDENT_DETAIL_FIELDS;
+}>;
 
 export type IncidentDetail = Prisma.IncidentGetPayload<{
   select: typeof INCIDENT_DETAIL_SELECT;
