@@ -25,9 +25,11 @@ import { CancelIncidentDto } from './dto/cancel-incident.dto';
 import { ListIncidentsQueryDto } from './dto/list-incidents-query.dto';
 import { IncidentPaginationQueryDto } from './dto/incident-pagination-query.dto';
 import {
+  INCIDENT_DETAIL_FIELDS,
   INCIDENT_DETAIL_SELECT,
   INCIDENT_LIST_SELECT,
   type IncidentDetail,
+  type IncidentDetailFields,
 } from './incident.select';
 
 export interface IncidentAuditContext {
@@ -95,7 +97,7 @@ export class IncidentsService {
               },
             },
           },
-          select: INCIDENT_DETAIL_SELECT,
+          select: INCIDENT_DETAIL_FIELDS,
         });
         await this.audit.record(
           {
@@ -112,7 +114,7 @@ export class IncidentsService {
           },
           tx,
         );
-        return created;
+        return this.loadDetailRelations(tx, created);
       });
       return this.toDetail(incident);
     } catch (error) {
@@ -347,13 +349,42 @@ export class IncidentsService {
       );
       const updated = await tx.incident.findUniqueOrThrow({
         where: { id },
-        select: INCIDENT_DETAIL_SELECT,
+        select: INCIDENT_DETAIL_FIELDS,
       });
-      return this.toDetail(updated, actor.role === UserRole.CITIZEN);
+      const hideResponsible = actor.role === UserRole.CITIZEN;
+      const detail = await this.loadDetailRelations(
+        tx,
+        updated,
+        hideResponsible,
+      );
+      return this.toDetail(detail, hideResponsible);
     });
     if (actor.role !== UserRole.CITIZEN)
       this.events.publish(id, result.version);
     return result;
+  }
+
+  private async loadDetailRelations(
+    tx: Prisma.TransactionClient,
+    incident: IncidentDetailFields,
+    hideResponsible = false,
+  ): Promise<IncidentDetail> {
+    const entities = await tx.incidentEntity.findMany({
+      where: { incidentId: incident.id },
+      select: INCIDENT_DETAIL_SELECT.entities.select,
+    });
+    const responsible =
+      !hideResponsible && incident.responsibleId
+        ? await tx.user.findUnique({
+            where: { id: incident.responsibleId },
+            select: INCIDENT_DETAIL_SELECT.responsible.select,
+          })
+        : null;
+    const reporter = await tx.user.findUniqueOrThrow({
+      where: { id: incident.reporterId },
+      select: INCIDENT_DETAIL_SELECT.reporter.select,
+    });
+    return { ...incident, entities, responsible, reporter };
   }
 
   private replay(
