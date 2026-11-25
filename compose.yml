@@ -1,15 +1,31 @@
 services:
   app-server:
-    container_name: api
     build:
       context: .
       target: production
       dockerfile: ./Dockerfile
-    ports:
-      - "7100:7100"
+
+    restart: unless-stopped
+
     env_file:
       - .env
+
     environment:
-      PORT: 7100
+      NODE_ENV: production
+      PORT: 8000
       TZ: America/Lima
-    restart: unless-stopped
+
+    expose:
+      - "8000"
+
+    security_opt:
+      - no-new-privileges:true
+
+    networks:
+      dokploy-network:
+        aliases:
+          - willariq-api
+
+networks:
+  dokploy-network:
+    external: true
